@@ -27,6 +27,7 @@ const GUIDES = {
   version: { url:'https://admin.powerplatform.microsoft.com', label:'admin.powerplatform.microsoft.com → Environments', steps:['Ga naar <a href="https://admin.powerplatform.microsoft.com" target="_blank">admin.powerplatform.microsoft.com</a>','Klik op <strong>Environments</strong> in het linkermenu','Klik op de naam van de <strong>doelomgeving</strong>','Bekijk het veld <strong>Version</strong> onder Details','Vergelijk met de versie in je solution — omgeving moet gelijk of hoger zijn'] },
   security: { url:'https://make.powerapps.com', label:'Settings → Advanced settings → Security → Users', steps:['Ga naar <a href="https://make.powerapps.com" target="_blank">make.powerapps.com</a> → doelomgeving','Klik op het tandwiel ⚙️ rechtsboven → <strong>Advanced settings</strong>','Ga naar <strong>Settings → Security → Users</strong>','Selecteer een gebruiker → <strong>Manage Security Roles</strong>','Vink de juiste rollen aan en klik <strong>OK</strong>'] },
   duplicates: { url:'https://make.powerapps.com', label:'make.powerapps.com → Solutions (bron)', steps:['Ga naar <a href="https://make.powerapps.com" target="_blank">make.powerapps.com</a> (bronomgeving)','Open de solution en zoek de componenten met dubbele namen','Klik op het component → <strong>...</strong> → hernoem het','Exporteer de solution opnieuw'] },
+  hardcoded_url: { url:'https://make.powerautomate.com', label:'Flow Editor', steps:['Open de flow in de <strong>Edit</strong> modus','Zoek naar acties (zoals HTTP of SharePoint) waar een volledige URL is ingevuld','Vervang de URL door een <strong>Environment Variable</strong> voor een betere migratie'] },
 };
 
 // ─── COMPONENT DEFINITIONS ────────────────────────────────────────────────────
@@ -51,61 +52,68 @@ const COMP_DEFS = [
 
 // ─── ANALYSIS CHECKS ──────────────────────────────────────────────────────────
 const CHECKS = [
-  { id:'missing_deps', level:'error', run(doc) {
-    const m=[...doc.querySelectorAll('MissingDependency')]; if(!m.length) return null;
+  { id:'missing_deps', level:'error', run(ctx) {
+    const m=[...ctx.solutionDoc.querySelectorAll('MissingDependency')]; if(!m.length) return null;
     const items=m.map(x=>{const r=x.querySelector('Required'); return `${r?.getAttribute('displayName')||r?.getAttribute('id')||'?'} (type:${r?.getAttribute('type')||'?'})`;});
     return { title:`${m.length} Ontbrekende afhankelijkheid${m.length>1?'heden':''}`, desc:'De solution heeft componenten afhankelijk van objecten die niet aanwezig zijn in de doelomgeving.', details:items.slice(0,5), solution:'Installeer eerst de vereiste managed solutions in de doelomgeving.', guide:GUIDES.missing_deps };
   }},
-  { id:'conn_refs', level:'warning', run(doc) {
-    const r=[...doc.querySelectorAll('connectionreference,ConnectionReference')]; if(!r.length) return null;
+  { id:'conn_refs', level:'warning', run(ctx) {
+    const r=[...ctx.solutionDoc.querySelectorAll('connectionreference,ConnectionReference')]; if(!r.length) return null;
     const names=r.map(x=>x.getAttribute('connectionreferencelogicalname')||x.getAttribute('name')||'?');
     return { title:`${r.length} Connectie Referentie${r.length>1?'s':''}`, desc:'Connectie referenties moeten in de doelomgeving opnieuw ingesteld worden.', details:[...new Set(names)].slice(0,5), solution:'Configureer na import de connectie referenties vanuit de solution.', guide:GUIDES.connection_refs };
   }},
-  { id:'env_vars', level:'warning', run(doc) {
-    const vars=[...doc.querySelectorAll('environmentvariabledefinition,EnvironmentVariableDefinition')]; if(!vars.length) return null;
+  { id:'env_vars', level:'warning', run(ctx) {
+    const vars=[...ctx.solutionDoc.querySelectorAll('environmentvariabledefinition,EnvironmentVariableDefinition')]; if(!vars.length) return null;
     const missing=vars.filter(v=>!v.querySelector('defaultvalue,DefaultValue'));
     if(!missing.length) return { level:'info', title:`${vars.length} Omgevingsvariabele${vars.length>1?'n':''} (met standaardwaarden)`, desc:'Alle omgevingsvariabelen hebben standaardwaarden.', details:[], solution:'Controleer na import of de standaardwaarden kloppen.', guide:GUIDES.env_ok };
     return { title:`${missing.length} Omgevingsvariabele${missing.length>1?'n':''} zonder standaardwaarde`, desc:'Deze variabelen hebben geen standaardwaarde en moeten bij import worden ingevuld.', details:missing.map(v=>v.getAttribute('displayname')||v.getAttribute('schemaname')||'?').slice(0,5), solution:'Stel de waarden in tijdens of na de import wizard.', guide:GUIDES.env_missing };
   }},
-  { id:'managed', level:'info', run(doc) {
-    const m=doc.querySelector('SolutionManifest > Managed,managed');
+  { id:'hardcoded_urls', level:'warning', run(ctx) {
+    if (!ctx.fileContents) return null;
+    const foundUrls = [];
+    for (const [name, content] of Object.entries(ctx.fileContents)) {
+      if (name.startsWith('Workflows/') && name.endsWith('.json')) {
+        const matches = content.match(/https?:\/\/[a-zA-Z0-9.-]+\.sharepoint\.com/g) || 
+                        content.match(/https?:\/\/[a-zA-Z0-9.-]+\.dynamics\.com/g) ||
+                        content.match(/https?:\/\/[a-zA-Z0-9.-]+\.crm\.dynamics\.com/g);
+        if (matches) {
+          foundUrls.push(...matches.map(u => `${name.split('/').pop()}: ${u}`));
+        }
+      }
+    }
+    if (!foundUrls.length) return null;
+    return { title:`Hardcoded URL's gedetecteerd`, desc:`Er zijn hardcoded SharePoint of Dynamics URL's gevonden in de Flow definities. Dit kan problemen geven bij migratie naar andere omgevingen/tenants.`, details:[...new Set(foundUrls)].slice(0,5), solution:'Gebruik Omgevingsvariabelen voor URL\'s in plaats van hardcoded waarden.', guide:GUIDES.hardcoded_url };
+  }},
+  { id:'customizations_plugins', level:'info', run(ctx) {
+    if (!ctx.customDoc) return null;
+    const plugins = [...ctx.customDoc.querySelectorAll('PluginAssembly, pluginassembly')];
+    if (!plugins.length) return null;
+    return { title:`${plugins.length} Plugin Assemblies gevonden`, desc:'De solution bevat custom code (C# plugins). Zorg dat de doelomgeving plugins toestaat.', details:plugins.map(p => p.getAttribute('name') || p.getAttribute('Name') || '?').slice(0,5), solution:'Controleer of de Plugin Registration Tool of PAC CLI nodig is voor verdere configuratie.', level:'info' };
+  }},
+  { id:'managed', level:'info', run(ctx) {
+    const m=ctx.solutionDoc.querySelector('SolutionManifest > Managed,managed');
     if(!m||!['1','true'].includes(m.textContent.trim().toLowerCase())) return null;
     return { title:'Managed Solution', desc:'Aanpassingen aan componenten in de doelomgeving zijn beperkt.', details:[], solution:'Exporteer de unmanaged versie vanuit de bronomgeving voor volledige bewerkbaarheid.', guide:GUIDES.managed };
   }},
-  { id:'flows', level:'info', run(doc) {
-    const f=[...doc.querySelectorAll('workflow,Workflow')].filter(w=>w.getAttribute('category')==='5'||w.getAttribute('Category')==='5');
+  { id:'flows', level:'info', run(ctx) {
+    const f=[...ctx.solutionDoc.querySelectorAll('workflow,Workflow')].filter(w=>w.getAttribute('category')==='5'||w.getAttribute('Category')==='5');
     if(!f.length) return null;
     return { title:`${f.length} Power Automate Flow${f.length>1?'s':''}`, desc:'Flows moeten na import worden ingeschakeld en geconfigureerd.', details:f.slice(0,5).map(w=>w.getAttribute('name')||'?'), solution:'Open elke flow, herstel connecties en schakel in via Turn on.', guide:GUIDES.flows };
   }},
-  { id:'canvas', level:'info', run(doc) {
-    const a=[...doc.querySelectorAll('CanvasApp,canvasapp')]; if(!a.length) return null;
-    return { title:`${a.length} Canvas App${a.length>1?'s':''}`, desc:'Canvas apps vereisen na import mogelijk herverbinding van databronnen.', details:a.slice(0,5).map(x=>x.getAttribute('displayname')||x.getAttribute('name')||'?'), solution:'Open elke app in de editor en herstel verbroken databronnen.', guide:GUIDES.canvas };
-  }},
-  { id:'publisher', level:'warning', run(doc) {
-    const pub=doc.querySelector('Publisher,publisher'); if(!pub) return null;
+  { id:'publisher', level:'warning', run(ctx) {
+    const pub=ctx.solutionDoc.querySelector('Publisher,publisher'); if(!pub) return null;
     const prefix=pub.querySelector('CustomizationPrefix,customizationprefix')?.textContent?.trim();
     if(!prefix||prefix==='new') return { title:'Standaard Publisher Prefix "new"', desc:'De "new" prefix kan conflicten veroorzaken bij import.', details:[`Prefix: ${prefix||'new'}`], solution:'Maak een nieuwe publisher aan met een unieke prefix.', guide:GUIDES.publisher };
     return null;
   }},
-  { id:'version', level:'info', run(doc) {
-    const ver=doc.querySelector('Version,version')?.textContent?.trim(); if(!ver) return null;
-    return { title:`Solution versie: ${ver}`, desc:'Controleer of de doelomgeving een gelijke of hogere platform versie heeft.', details:[], solution:'Bekijk de omgevingsversie via het Power Platform admin center.', guide:GUIDES.version };
-  }},
-  { id:'security', level:'info', run(doc) {
-    const r=[...doc.querySelectorAll('Role,role')]; if(!r.length) return null;
-    return { title:`${r.length} Beveiligingsrol${r.length>1?'len':''}`, desc:'Beveiligingsrollen moeten na import worden toegewezen aan gebruikers.', details:r.slice(0,5).map(x=>x.getAttribute('name')||'?'), solution:'Wijs rollen toe via Settings → Security → Users.', guide:GUIDES.security };
-  }},
-  { id:'dupes', level:'warning', run(doc) {
-    const names=[...doc.querySelectorAll('[name],[Name]')].map(c=>c.getAttribute('name')||c.getAttribute('Name')).filter(Boolean);
-    const dupes=[...new Set(names.filter((n,i)=>names.indexOf(n)!==i))];
-    if(!dupes.length) return null;
-    return { title:`${dupes.length} Dubbele component naam/namen`, desc:'Componenten met dezelfde naam kunnen importproblemen veroorzaken.', details:dupes.slice(0,5), solution:'Hernoem conflicterende componenten in de bronomgeving.', guide:GUIDES.duplicates };
-  }},
 ];
 
 // ─── COMPONENT DETECTION ──────────────────────────────────────────────────────
-function detectComponents(doc, zipFiles) {
+function detectComponents(ctx) {
   const results = [];
+  const doc = ctx.solutionDoc;
+  const zipFiles = ctx.zipFiles;
+  
   for (const def of COMP_DEFS) {
     let items = [];
     for (const sel of def.selectors) {
@@ -179,7 +187,7 @@ function renderAnalysis(findings, meta) {
 function renderComponents(comps) {
   const total = comps.reduce((s,c)=>s+c.items.length,0);
   let h=`<div class="comp-summary"><div class="comp-summary-num">${total}</div><div class="comp-summary-label"><strong>${total} componenten gevonden</strong>in ${comps.length} categorie${comps.length!==1?'ën':''}</div></div>`;
-  if(!comps.length){ h+=`<div class="comp-empty">Geen componenten herkend in deze XML.<br/>Upload de volledige solution.zip voor beste resultaten.</div>`; }
+  if(!comps.length){ h+=`<div class="comp-empty">Geen componenten herkend.<br/>Upload de volledige solution.zip voor beste resultaten.</div>`; }
   else {
     h+=`<div class="comp-grid">`;
     comps.forEach((c,i)=>{
@@ -191,7 +199,8 @@ function renderComponents(comps) {
 }
 
 window.toggleCard = function(id) {
-  document.getElementById(id).classList.toggle('open');
+  const el = document.getElementById(id);
+  if (el) el.classList.toggle('open');
 };
 
 // ─── CORE ─────────────────────────────────────────────────────────────────────
@@ -205,31 +214,24 @@ function extractMeta(doc) {
 }
 
 function showLoader() {
-  log('Showing loader');
   document.getElementById('outputArea').classList.remove('hidden');
-  document.getElementById('results').innerHTML=`<div class="loader"><div class="spinner"></div><br/>Analyseren...</div>`;
+  document.getElementById('results').innerHTML=`<div class="loader"><div class="spinner"></div><br/>Diepe scan bezig...</div>`;
   document.getElementById('componentsView').innerHTML='';
 }
 
 function showError(msg) {
-  log('Error occurred', msg);
   document.getElementById('outputArea').classList.remove('hidden');
   document.getElementById('results').innerHTML=`<div class="finding-card error"><div class="finding-header"><span class="finding-badge badge-error">Fout</span><span class="finding-title">Analyse mislukt</span></div><div class="finding-desc">${esc(msg)}</div></div>`;
 }
 
-function runAnalysis(xmlString, zipFiles) {
-  log('Starting analysis', { xmlLength: xmlString.length, hasZip: !!zipFiles });
+function runAnalysis(ctx) {
+  log('Starting Deep Analysis', { files: Object.keys(ctx.zipFiles || {}).length });
   try {
-    const parser=new DOMParser();
-    const doc=parser.parseFromString(xmlString,'text/xml');
-    if(doc.querySelector('parsererror')){ showError('Ongeldige XML. Controleer of je de volledige en correcte XML hebt geplakt.'); return; }
-    const meta=extractMeta(doc);
-    log('Meta extracted', meta);
+    const meta=extractMeta(ctx.solutionDoc);
     const findings=[];
-    for(const chk of CHECKS){ try{ const r=chk.run(doc); if(r) findings.push({level:r.level||chk.level,...r}); }catch(e){ log(`Check ${chk.id} failed`, e); } }
+    for(const chk of CHECKS){ try{ const r=chk.run(ctx); if(r) findings.push({level:r.level||chk.level,...r}); }catch(e){ log(`Check ${chk.id} failed`, e); } }
     findings.sort((a,b)=>({error:0,warning:1,info:2}[a.level]??9)-({error:0,warning:1,info:2}[b.level]??9));
-    const comps=detectComponents(doc, zipFiles);
-    log('Components detected', comps.length);
+    const comps=detectComponents(ctx);
     document.getElementById('outputArea').classList.remove('hidden');
     renderAnalysis(findings, meta);
     renderComponents(comps);
@@ -241,22 +243,28 @@ function runAnalysis(xmlString, zipFiles) {
 }
 
 async function analyzeZip(file) {
-  log('Analyzing ZIP', file.name);
-  if (!window.JSZip) {
-    showError('JSZip bibliotheek kon niet worden geladen. Controleer je internetverbinding.');
-    return;
-  }
+  log('Analyzing ZIP Deep Scan', file.name);
   try {
     const zip=await window.JSZip.loadAsync(file);
-    const zipFiles=zip.files;
-    log('ZIP loaded, entries:', Object.keys(zipFiles).length);
-    let xml=null;
-    for(const name of ['solution.xml','customizations.xml','Other/solution.xml']){
-      const e=zip.file(name); if(e){xml=await e.async('text'); log('Found XML:', name); break;}
+    const ctx = { zipFiles: zip.files, fileContents: {} };
+    
+    // Pre-load essential XMLs
+    const parser = new DOMParser();
+    const solFile = zip.file('solution.xml') || zip.file('Other/solution.xml');
+    if (solFile) ctx.solutionDoc = parser.parseFromString(await solFile.async('text'), 'text/xml');
+    
+    const custFile = zip.file('customizations.xml');
+    if (custFile) ctx.customDoc = parser.parseFromString(await custFile.async('text'), 'text/xml');
+    
+    // Pre-load all JSONs for content scanning
+    for (const [name, entry] of Object.entries(zip.files)) {
+      if (name.endsWith('.json') && !entry.dir) {
+        ctx.fileContents[name] = await entry.async('text');
+      }
     }
-    if(!xml){ for(const[n,e] of Object.entries(zipFiles)){ if(n.endsWith('.xml')&&!e.dir){xml=await e.async('text'); log('Fallback XML found:', n); break;} } }
-    if(!xml){ showError('Geen XML gevonden in de ZIP. Is dit een geldige Power Platform solution?'); return; }
-    runAnalysis(xml, zipFiles);
+    
+    if (!ctx.solutionDoc) { showError('Geen solution.xml gevonden.'); return; }
+    runAnalysis(ctx);
   } catch (err) {
     log('Error reading ZIP', err);
     showError('Kon de ZIP niet openen: ' + err.message);
@@ -269,59 +277,36 @@ document.querySelectorAll('.tab').forEach(tab=>{
     document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
     document.querySelectorAll('.tab-panel').forEach(p=>p.classList.add('hidden'));
     tab.classList.add('active');
-    document.getElementById('tab'+tab.dataset.tab.charAt(0).toUpperCase()+tab.dataset.tab.slice(1)).classList.remove('hidden');
+    const panelId = 'tab' + tab.dataset.tab.charAt(0).toUpperCase() + tab.dataset.tab.slice(1);
+    document.getElementById(panelId).classList.remove('hidden');
   });
 });
 
 // ─── EVENTS ───────────────────────────────────────────────────────────────────
-const dropzone=document.getElementById('dropzone');
 const fileInput=document.getElementById('fileInput');
-const xmlInput=document.getElementById('xmlInput');
-
 async function handleFile(file){
-  log('File handle started', { name: file.name, type: file.type, size: file.size });
   showLoader();
   await new Promise(r=>setTimeout(r,200));
-  try {
-    if(file.name.endsWith('.zip')) {
-      await analyzeZip(file);
-    } else {
-      const text = await file.text();
-      runAnalysis(text, null);
-    }
-  } catch (err) {
-    log('Error in handleFile', err);
-    showError('Fout bij verwerken bestand: ' + err.message);
+  if(file.name.endsWith('.zip')) await analyzeZip(file);
+  else {
+    const text = await file.text();
+    const parser = new DOMParser();
+    runAnalysis({ solutionDoc: parser.parseFromString(text, 'text/xml'), zipFiles: {}, fileContents: {} });
   }
 }
 
-dropzone.addEventListener('dragover',e=>{e.preventDefault();dropzone.classList.add('drag-over');});
-dropzone.addEventListener('dragleave',()=>dropzone.classList.remove('drag-over'));
-dropzone.addEventListener('drop',async e=>{
-  e.preventDefault();
-  dropzone.classList.remove('drag-over');
-  log('File dropped');
-  const f=e.dataTransfer.files[0];
-  if(f) await handleFile(f);
+document.getElementById('dropzone').addEventListener('dragover',e=>{e.preventDefault();e.currentTarget.classList.add('drag-over');});
+document.getElementById('dropzone').addEventListener('dragleave',e=>e.currentTarget.classList.remove('drag-over'));
+document.getElementById('dropzone').addEventListener('drop',async e=>{
+  e.preventDefault(); e.currentTarget.classList.remove('drag-over');
+  if(e.dataTransfer.files[0]) await handleFile(e.dataTransfer.files[0]);
 });
-
-fileInput.addEventListener('change',async()=>{
-  log('File input changed');
-  if(fileInput.files[0]) await handleFile(fileInput.files[0]);
-});
-
+fileInput.addEventListener('change',async()=>{ if(fileInput.files[0]) await handleFile(fileInput.files[0]); });
 document.getElementById('analyzeBtn').addEventListener('click',async()=>{
-  log('Analyze button clicked');
-  const xml=xmlInput.value.trim();
-  if(!xml){
-    if(fileInput.files[0]){ await handleFile(fileInput.files[0]); return; }
-    showError('Plak eerst XML of selecteer een bestand.');
-    return;
-  }
-  showLoader();
-  await new Promise(r=>setTimeout(r,150));
-  runAnalysis(xml,null);
+  const xml=document.getElementById('xmlInput').value.trim();
+  if(!xml){ if(fileInput.files[0]){ await handleFile(fileInput.files[0]); return; } showError('Plak eerst XML of selecteer een bestand.'); return; }
+  showLoader(); await new Promise(r=>setTimeout(r,150));
+  const parser = new DOMParser();
+  runAnalysis({ solutionDoc: parser.parseFromString(xml, 'text/xml'), zipFiles: {}, fileContents: {} });
 });
-
-log('Analyzer script initialized');
-if (!window.JSZip) log('WARNING: JSZip not found on init');
+log('Deep Scan Analyzer initialized');
