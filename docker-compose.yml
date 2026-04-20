@@ -1,0 +1,10 @@
+version: '3.8'
+
+services:
+  pp-solution-analyzer:
+    build: .
+    image: pp-solution-analyzer:latest
+    container_name: pp-solution-analyzer
+    ports:
+      - "8090:80"
+    restart: unless-stopped

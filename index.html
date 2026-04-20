@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Power Platform Solution Analyzer</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="bg-orbs">
+    <div class="orb orb-1"></div>
+    <div class="orb orb-2"></div>
+    <div class="orb orb-3"></div>
+  </div>
+
+  <header>
+    <div class="logo">
+      <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+        <rect width="32" height="32" rx="8" fill="url(#lg1)"/>
+        <path d="M8 16L14 22L24 10" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+        <defs><linearGradient id="lg1" x1="0" y1="0" x2="32" y2="32" gradientUnits="userSpaceOnUse">
+          <stop stop-color="#7c3aed"/><stop offset="1" stop-color="#2563eb"/>
+        </linearGradient></defs>
+      </svg>
+      <span>PP Solution Analyzer</span>
+    </div>
+    <div class="badge">Power Platform</div>
+  </header>
+
+  <main>
+    <section class="hero">
+      <h1>Solution <span class="gradient-text">Analyzer</span></h1>
+      <p>Upload een geëxporteerde Power Platform solution (ZIP of XML) om automatisch problemen te detecteren en oplossingen te krijgen.</p>
+    </section>
+
+    <div class="upload-area" id="dropzone">
+      <div class="upload-icon">
+        <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
+          <path d="M24 4L24 32M24 4L14 14M24 4L34 14" stroke="url(#ug)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M6 36V42H42V36" stroke="url(#ug2)" stroke-width="3" stroke-linecap="round"/>
+          <defs>
+            <linearGradient id="ug" x1="14" y1="4" x2="34" y2="32" gradientUnits="userSpaceOnUse"><stop stop-color="#a78bfa"/><stop offset="1" stop-color="#60a5fa"/></linearGradient>
+            <linearGradient id="ug2" x1="6" y1="36" x2="42" y2="42" gradientUnits="userSpaceOnUse"><stop stop-color="#a78bfa"/><stop offset="1" stop-color="#60a5fa"/></linearGradient>
+          </defs>
+        </svg>
+      </div>
+      <p class="upload-title">Sleep een bestand hierheen</p>
+      <p class="upload-sub">Ondersteunt .zip (solution export) en .xml bestanden</p>
+      <label class="btn-upload" for="fileInput">Bestand kiezen</label>
+      <input type="file" id="fileInput" accept=".zip,.xml" hidden />
+      <div class="divider"><span>of</span></div>
+      <textarea id="xmlInput" placeholder="Plak hier je solution.xml of customizations.xml inhoud..."></textarea>
+      <button class="btn-analyze" id="analyzeBtn">🔍 Analyseer Solution</button>
+    </div>
+
+    <div id="results" class="results hidden"></div>
+  </main>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <script src="analyzer.js"></script>
+</body>
+</html>
