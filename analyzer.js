@@ -1,3 +1,19 @@
+// ─── DEBUG LOGGING ───────────────────────────────────────────────────────────
+function log(msg, data) {
+  console.log(`[Analyzer] ${msg}`, data || '');
+  const debug = document.getElementById('debugContent');
+  const area = document.getElementById('debugArea');
+  if (debug && area) {
+    area.classList.remove('hidden');
+    const timestamp = new Date().toLocaleTimeString();
+    const line = document.createElement('div');
+    line.style.borderBottom = '1px solid rgba(255,255,255,0.05)';
+    line.style.padding = '2px 0';
+    line.innerHTML = `[${timestamp}] ${msg} ${data ? JSON.stringify(data).slice(0, 100) : ''}`;
+    debug.prepend(line);
+  }
+}
+
 // ─── GUIDES ──────────────────────────────────────────────────────────────────
 const GUIDES = {
   missing_deps: { url:'https://make.powerapps.com', label:'make.powerapps.com → Solutions', steps:['Ga naar <a href="https://make.powerapps.com" target="_blank">make.powerapps.com</a>','Selecteer de <strong>doelomgeving</strong> rechtsboven','Klik op <strong>Solutions</strong> en bekijk welke managed solutions aanwezig zijn','Installeer de ontbrekende solutions via <strong>Import solution</strong>','Importeer daarna pas jouw solution opnieuw'] },
@@ -31,7 +47,6 @@ const COMP_DEFS = [
   { id:'envvars',     icon:'⚙️', label:'Omgevingsvariabelen',     types:['380'],       selectors:['environmentvariabledefinition','EnvironmentVariableDefinition'] },
   { id:'plugins',     icon:'🧩', label:'Plugins / Code',          types:['90','91'],   selectors:['PluginAssembly','pluginassembly'] },
   { id:'dashboards',  icon:'📊', label:'Dashboards & Grafieken',  types:['10','21'],   selectors:['SystemChart','savedqueryvisualization'] },
-  { id:'envvaldefs',  icon:'📝', label:'Chats / Transcripts',     types:['10056'],     selectors:[] },
 ];
 
 // ─── ANALYSIS CHECKS ──────────────────────────────────────────────────────────
@@ -93,7 +108,6 @@ function detectComponents(doc, zipFiles) {
   const results = [];
   for (const def of COMP_DEFS) {
     let items = [];
-    // Try XML selectors
     for (const sel of def.selectors) {
       try {
         let els = [...doc.querySelectorAll(sel)];
@@ -108,13 +122,11 @@ function detectComponents(doc, zipFiles) {
         }
       } catch(e) {}
     }
-    // Fallback: count RootComponents by type
     if (!items.length && def.types.length) {
       const count = def.types.reduce((sum, t) =>
         sum + doc.querySelectorAll(`RootComponent[type="${t}"],rootcomponent[type="${t}"]`).length, 0);
       if (count > 0) items = Array(count).fill('(details niet beschikbaar in solution.xml)');
     }
-    // ZIP file names fallback
     if (!items.length && zipFiles) {
       const folderMap = { canvas:'CanvasApps', flows:'Workflows', webres:'WebResources', connectors:'Connectors' };
       const folder = folderMap[def.id];
@@ -178,9 +190,9 @@ function renderComponents(comps) {
   document.getElementById('componentsView').innerHTML = h;
 }
 
-function toggleCard(id) {
+window.toggleCard = function(id) {
   document.getElementById(id).classList.toggle('open');
-}
+};
 
 // ─── CORE ─────────────────────────────────────────────────────────────────────
 function extractMeta(doc) {
@@ -193,41 +205,62 @@ function extractMeta(doc) {
 }
 
 function showLoader() {
+  log('Showing loader');
   document.getElementById('outputArea').classList.remove('hidden');
   document.getElementById('results').innerHTML=`<div class="loader"><div class="spinner"></div><br/>Analyseren...</div>`;
   document.getElementById('componentsView').innerHTML='';
 }
 
 function showError(msg) {
+  log('Error occurred', msg);
   document.getElementById('outputArea').classList.remove('hidden');
   document.getElementById('results').innerHTML=`<div class="finding-card error"><div class="finding-header"><span class="finding-badge badge-error">Fout</span><span class="finding-title">Analyse mislukt</span></div><div class="finding-desc">${esc(msg)}</div></div>`;
 }
 
 function runAnalysis(xmlString, zipFiles) {
-  const parser=new DOMParser();
-  const doc=parser.parseFromString(xmlString,'text/xml');
-  if(doc.querySelector('parsererror')){ showError('Ongeldige XML. Controleer of je de volledige en correcte XML hebt geplakt.'); return; }
-  const meta=extractMeta(doc);
-  const findings=[];
-  for(const chk of CHECKS){ try{ const r=chk.run(doc); if(r) findings.push({level:r.level||chk.level,...r}); }catch(e){} }
-  findings.sort((a,b)=>({error:0,warning:1,info:2}[a.level]??9)-({error:0,warning:1,info:2}[b.level]??9));
-  const comps=detectComponents(doc, zipFiles);
-  document.getElementById('outputArea').classList.remove('hidden');
-  renderAnalysis(findings, meta);
-  renderComponents(comps);
-  document.getElementById('outputArea').scrollIntoView({behavior:'smooth',block:'start'});
+  log('Starting analysis', { xmlLength: xmlString.length, hasZip: !!zipFiles });
+  try {
+    const parser=new DOMParser();
+    const doc=parser.parseFromString(xmlString,'text/xml');
+    if(doc.querySelector('parsererror')){ showError('Ongeldige XML. Controleer of je de volledige en correcte XML hebt geplakt.'); return; }
+    const meta=extractMeta(doc);
+    log('Meta extracted', meta);
+    const findings=[];
+    for(const chk of CHECKS){ try{ const r=chk.run(doc); if(r) findings.push({level:r.level||chk.level,...r}); }catch(e){ log(`Check ${chk.id} failed`, e); } }
+    findings.sort((a,b)=>({error:0,warning:1,info:2}[a.level]??9)-({error:0,warning:1,info:2}[b.level]??9));
+    const comps=detectComponents(doc, zipFiles);
+    log('Components detected', comps.length);
+    document.getElementById('outputArea').classList.remove('hidden');
+    renderAnalysis(findings, meta);
+    renderComponents(comps);
+    document.getElementById('outputArea').scrollIntoView({behavior:'smooth',block:'start'});
+  } catch (err) {
+    log('Fatal error in runAnalysis', err);
+    showError('Er is een onverwachte fout opgetreden: ' + err.message);
+  }
 }
 
 async function analyzeZip(file) {
-  const zip=await window.JSZip.loadAsync(file);
-  const zipFiles=zip.files;
-  let xml=null;
-  for(const name of ['solution.xml','customizations.xml','Other/solution.xml']){
-    const e=zip.file(name); if(e){xml=await e.async('text');break;}
+  log('Analyzing ZIP', file.name);
+  if (!window.JSZip) {
+    showError('JSZip bibliotheek kon niet worden geladen. Controleer je internetverbinding.');
+    return;
   }
-  if(!xml){ for(const[n,e] of Object.entries(zipFiles)){ if(n.endsWith('.xml')&&!e.dir){xml=await e.async('text');break;} } }
-  if(!xml){showError('Geen XML gevonden in de ZIP.');return;}
-  runAnalysis(xml, zipFiles);
+  try {
+    const zip=await window.JSZip.loadAsync(file);
+    const zipFiles=zip.files;
+    log('ZIP loaded, entries:', Object.keys(zipFiles).length);
+    let xml=null;
+    for(const name of ['solution.xml','customizations.xml','Other/solution.xml']){
+      const e=zip.file(name); if(e){xml=await e.async('text'); log('Found XML:', name); break;}
+    }
+    if(!xml){ for(const[n,e] of Object.entries(zipFiles)){ if(n.endsWith('.xml')&&!e.dir){xml=await e.async('text'); log('Fallback XML found:', n); break;} } }
+    if(!xml){ showError('Geen XML gevonden in de ZIP. Is dit een geldige Power Platform solution?'); return; }
+    runAnalysis(xml, zipFiles);
+  } catch (err) {
+    log('Error reading ZIP', err);
+    showError('Kon de ZIP niet openen: ' + err.message);
+  }
 }
 
 // ─── TABS ─────────────────────────────────────────────────────────────────────
@@ -246,17 +279,49 @@ const fileInput=document.getElementById('fileInput');
 const xmlInput=document.getElementById('xmlInput');
 
 async function handleFile(file){
+  log('File handle started', { name: file.name, type: file.type, size: file.size });
   showLoader();
   await new Promise(r=>setTimeout(r,200));
-  file.name.endsWith('.zip')?await analyzeZip(file):runAnalysis(await file.text(), null);
+  try {
+    if(file.name.endsWith('.zip')) {
+      await analyzeZip(file);
+    } else {
+      const text = await file.text();
+      runAnalysis(text, null);
+    }
+  } catch (err) {
+    log('Error in handleFile', err);
+    showError('Fout bij verwerken bestand: ' + err.message);
+  }
 }
 
 dropzone.addEventListener('dragover',e=>{e.preventDefault();dropzone.classList.add('drag-over');});
 dropzone.addEventListener('dragleave',()=>dropzone.classList.remove('drag-over'));
-dropzone.addEventListener('drop',async e=>{e.preventDefault();dropzone.classList.remove('drag-over');const f=e.dataTransfer.files[0];if(f)await handleFile(f);});
-fileInput.addEventListener('change',async()=>{if(fileInput.files[0])await handleFile(fileInput.files[0]);});
-document.getElementById('analyzeBtn').addEventListener('click',async()=>{
-  const xml=xmlInput.value.trim();
-  if(!xml){if(fileInput.files[0]){await handleFile(fileInput.files[0]);return;}showError('Plak eerst XML of selecteer een bestand.');return;}
-  showLoader();await new Promise(r=>setTimeout(r,150));runAnalysis(xml,null);
+dropzone.addEventListener('drop',async e=>{
+  e.preventDefault();
+  dropzone.classList.remove('drag-over');
+  log('File dropped');
+  const f=e.dataTransfer.files[0];
+  if(f) await handleFile(f);
 });
+
+fileInput.addEventListener('change',async()=>{
+  log('File input changed');
+  if(fileInput.files[0]) await handleFile(fileInput.files[0]);
+});
+
+document.getElementById('analyzeBtn').addEventListener('click',async()=>{
+  log('Analyze button clicked');
+  const xml=xmlInput.value.trim();
+  if(!xml){
+    if(fileInput.files[0]){ await handleFile(fileInput.files[0]); return; }
+    showError('Plak eerst XML of selecteer een bestand.');
+    return;
+  }
+  showLoader();
+  await new Promise(r=>setTimeout(r,150));
+  runAnalysis(xml,null);
+});
+
+log('Analyzer script initialized');
+if (!window.JSZip) log('WARNING: JSZip not found on init');

@@ -70,9 +70,21 @@
         <div id="componentsView"></div>
       </div>
     </div>
+
+    <!-- Debug Log Area -->
+    <div id="debugArea" class="hidden" style="margin-top: 4rem; padding-top: 2rem; border-top: 1px solid var(--border);">
+      <p style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 0.5rem; text-transform: uppercase; letter-spacing: 0.1em;">Console Debug Log</p>
+      <div id="debugContent" style="background: rgba(0,0,0,0.4); border-radius: 8px; padding: 1rem; font-family: monospace; font-size: 0.75rem; color: #a78bfa; max-height: 200px; overflow-y: auto;">
+        Geen logs beschikbaar.
+      </div>
+    </div>
   </main>
 
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <footer style="text-align: center; padding: 2rem; color: var(--text-muted); font-size: 0.75rem; opacity: 0.5;">
+    Power Platform Solution Analyzer &bull; Draait volledig lokaal
+  </footer>
+
+  <script src="jszip.min.js"></script>
   <script src="analyzer.js"></script>
 </body>
 </html>
