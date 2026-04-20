@@ -32,7 +32,7 @@
   <main>
     <section class="hero">
       <h1>Solution <span class="gradient-text">Analyzer</span></h1>
-      <p>Upload een geëxporteerde Power Platform solution (ZIP of XML) om automatisch problemen te detecteren en oplossingen te krijgen.</p>
+      <p>Upload een geëxporteerde Power Platform solution (ZIP of XML) om automatisch problemen te detecteren en een volledig componentoverzicht te krijgen.</p>
     </section>
 
     <div class="upload-area" id="dropzone">
@@ -55,7 +55,21 @@
       <button class="btn-analyze" id="analyzeBtn">🔍 Analyseer Solution</button>
     </div>
 
-    <div id="results" class="results hidden"></div>
+    <div id="outputArea" class="hidden">
+      <!-- Tabs -->
+      <div class="tabs">
+        <button class="tab active" data-tab="analysis">🔍 Analyse</button>
+        <button class="tab" data-tab="components">📦 Componenten</button>
+      </div>
+
+      <div id="tabAnalysis" class="tab-panel">
+        <div id="results"></div>
+      </div>
+
+      <div id="tabComponents" class="tab-panel hidden">
+        <div id="componentsView"></div>
+      </div>
+    </div>
   </main>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
