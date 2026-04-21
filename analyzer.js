@@ -48,10 +48,13 @@ function harvestCopilotDeep(ctx) {
       const desc = doc.querySelector('description')?.textContent || 'Geen beschrijving';
       const lastPub = doc.querySelector('publishtime')?.textContent || doc.querySelector('modifiedon')?.textContent || 'Onbekend';
       
-      // Basic trigger detection
+      // Status detection: statecode 0 is usually Active/On, 1 is Inactive/Off
+      const stateCode = doc.querySelector('statecode')?.textContent || doc.querySelector('statuscode')?.textContent || '0';
+      const status = stateCode === '0' ? '🟢 Aan' : '🔴 Uit';
+      
       const isTopic = path.includes('componenttype=9') || doc.querySelector('componenttype')?.textContent === '9';
       if (isTopic) {
-        topics.push({ name, desc, lastPub, path });
+        topics.push({ name, desc, lastPub, status, path });
       }
     }
   });
@@ -110,8 +113,8 @@ function renderInsights(ctx) {
       <div class="insight-card">
         <div class="insight-card-title">💬 Copilot Topics (${topics.length})</div>
         <table class="insight-table">
-          <tr><th>Topic</th><th>Beschrijving</th><th>Laatst Gewijzigd</th></tr>
-          ${topics.map(t => `<tr><td><strong>${esc(t.name)}</strong></td><td><small>${esc(t.desc)}</small></td><td><span class="badge-date">${esc(t.lastPub)}</span></td></tr>`).join('')}
+          <tr><th>Topic</th><th>Status</th><th>Beschrijving</th><th>Datum</th></tr>
+          ${topics.map(t => `<tr><td><strong>${esc(t.name)}</strong></td><td>${t.status}</td><td><small>${esc(t.desc)}</small></td><td><span class="badge-date">${esc(t.lastPub)}</span></td></tr>`).join('')}
         </table>
       </div>
     `;
