@@ -219,6 +219,99 @@ function extractMeta(doc) {
 function toggleCard(id) { document.getElementById(id).classList.toggle('open'); }
 window.toggleCard = toggleCard;
 
+// ─── AI CHAT LOGIC ────────────────────────────────────────────────────────────
+let currentContext = null;
+
+function saveApiKey() {
+  const key = document.getElementById('geminiKey').value.trim();
+  if (key) {
+    localStorage.setItem('gemini_api_key', key);
+    checkChatSetup();
+  }
+}
+
+function checkChatSetup() {
+  const key = localStorage.getItem('gemini_api_key');
+  if (key) {
+    document.getElementById('chatKeyArea').classList.add('hidden');
+    document.getElementById('chatActiveArea').classList.remove('hidden');
+  }
+}
+
+async function sendChatMessage() {
+  const input = document.getElementById('chatInput');
+  const history = document.getElementById('chatHistory');
+  const btn = document.getElementById('sendBtn');
+  const msg = input.value.trim();
+  const key = localStorage.getItem('gemini_api_key');
+
+  if (!msg || !key) return;
+
+  // Add user message
+  appendMessage('user', msg);
+  input.value = '';
+  btn.disabled = true;
+
+  // Add loading
+  const loadingMsg = appendMessage('ai', 'Gemini denkt na...', true);
+
+  try {
+    const contextStr = currentContext ? `
+      CONTEXT OVER DE GEANALYSEERDE POWER PLATFORM SOLUTION:
+      Naam: ${currentContext.name}
+      Items: ${currentContext.totalItems}
+      Gevonden Topics: ${JSON.stringify(currentContext.topics)}
+      Waarschuwingen: ${JSON.stringify(currentContext.warnings)}
+    ` : 'Er is nog geen bestand geanalyseerd.';
+
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${key}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{
+          parts: [{ text: `${contextStr}\n\nGEBRUIKERSVRAAG: ${msg}\n\nAntwoord als een Power Platform expert. Gebruik Markdown.` }]
+        }]
+      })
+    });
+
+    const data = await response.json();
+    loadingMsg.remove();
+
+    if (data.candidates && data.candidates[0].content.parts[0].text) {
+      appendMessage('ai', data.candidates[0].content.parts[0].text);
+    } else {
+      throw new Error('Ongeldig antwoord van API');
+    }
+  } catch (err) {
+    loadingMsg.remove();
+    appendMessage('ai', `Fout bij aanroepen Gemini: ${err.message}. Controleer je API key.`);
+  } finally {
+    btn.disabled = false;
+    history.scrollTop = history.scrollHeight;
+  }
+}
+
+function appendMessage(role, text, isLoading = false) {
+  const history = document.getElementById('chatHistory');
+  const div = document.createElement('div');
+  div.className = `chat-msg ${role} ${isLoading ? 'loading' : ''}`;
+  div.innerText = text;
+  history.appendChild(div);
+  history.scrollTop = history.scrollHeight;
+  return div;
+}
+
+// Check on load
+document.addEventListener('DOMContentLoaded', () => {
+  checkChatSetup();
+  document.getElementById('chatInput')?.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') sendChatMessage();
+  });
+});
+
+window.saveApiKey = saveApiKey;
+window.sendChatMessage = sendChatMessage;
+
 async function handleFile(file) {
   document.getElementById('outputArea').classList.remove('hidden');
   document.getElementById('results').innerHTML = `<div class="loader"><div class="spinner"></div><br/>Diepe analyse bezig...</div>`;
@@ -249,6 +342,17 @@ async function handleFile(file) {
 
     renderResults(ctx);
     renderComponents(ctx);
+    
+    // Store context for AI
+    const meta = extractMeta(ctx.solutionDoc);
+    const topics = harvestCopilotDeep(ctx);
+    const integrity = checkExportIntegrity(ctx);
+    currentContext = {
+      name: meta.name,
+      totalItems: ctx.solutionDoc.querySelectorAll('RootComponent').length,
+      topics: topics.map(t => ({ name: t.name, status: t.status })),
+      warnings: integrity.map(i => i.title)
+    };
     
   } catch (err) {
     log('Fatal Error', err);
