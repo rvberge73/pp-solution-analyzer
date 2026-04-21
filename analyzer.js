@@ -47,7 +47,6 @@ function harvestCopilotDeep(ctx) {
       const name = doc.querySelector('name')?.textContent || path.split('/').pop();
       const desc = doc.querySelector('description')?.textContent || 'Geen beschrijving';
       const lastPub = doc.querySelector('publishtime')?.textContent || doc.querySelector('modifiedon')?.textContent || 'Onbekend';
-      
       const stateCode = doc.querySelector('statecode')?.textContent || doc.querySelector('statuscode')?.textContent || '0';
       const statusText = stateCode === '0' ? '🟢 Aan' : '🔴 Uit';
       const isActive = stateCode === '0';
@@ -55,7 +54,6 @@ function harvestCopilotDeep(ctx) {
       const isTopic = path.includes('componenttype=9') || doc.querySelector('componenttype')?.textContent === '9';
       if (isTopic) {
         const existing = topicMap.get(name);
-        // Deduplication logic: Prioritize Active, then newer date
         if (!existing || (isActive && existing.status === '🔴 Uit') || (isActive === (existing.status === '🟢 Aan') && lastPub > existing.lastPub)) {
           topicMap.set(name, { name, desc, lastPub, status: statusText, path });
         }
@@ -68,50 +66,40 @@ function harvestCopilotDeep(ctx) {
 function checkExportIntegrity(ctx) {
   const warnings = [];
   const rootComps = [...ctx.solutionDoc.querySelectorAll('RootComponent')];
-  
   rootComps.forEach(comp => {
     const type = comp.getAttribute('type');
     const id = comp.getAttribute('id');
     const schemaName = comp.getAttribute('schemaName') || id;
-    
-    // Check for common missing files
-    if (type === '29') { // Workflow
+    if (type === '29') {
       const found = Object.keys(ctx.zipFiles || {}).some(k => k.includes(id) || k.includes(schemaName));
-      if (!found) warnings.push({ title: `Flow bestand mist: ${schemaName}`, desc: `De flow staat in solution.xml maar het definitiebestand ontbreekt in de ZIP.`, level: 'warning' });
+      if (!found) warnings.push({ title: `Flow bestand mist: ${schemaName}`, desc: `Definitiebestand ontbreekt in de ZIP.`, level: 'warning' });
     }
-    if (type === '300') { // Canvas App
+    if (type === '300') {
       const found = Object.keys(ctx.zipFiles || {}).some(k => k.startsWith('CanvasApps/') && k.includes(schemaName));
-      if (!found) warnings.push({ title: `Canvas App mist: ${schemaName}`, desc: `Het .msapp bestand of metadata voor deze app ontbreekt.`, level: 'warning' });
+      if (!found) warnings.push({ title: `Canvas App mist: ${schemaName}`, desc: `Het .msapp bestand ontbreekt.`, level: 'warning' });
     }
   });
-
   return warnings;
-}
-
-function harvestMasterInventory(ctx) {
-  const inventory = [];
-  const rootComps = [...ctx.solutionDoc.querySelectorAll('RootComponent')];
-  rootComps.forEach(comp => {
-    inventory.push({
-      logicalName: comp.getAttribute('schemaName') || comp.getAttribute('id') || '?',
-      typeCode: comp.getAttribute('type'),
-      displayName: comp.getAttribute('displayName') || '–'
-    });
-  });
-  return inventory;
 }
 
 // ─── RENDERERS ────────────────────────────────────────────────────────────────
 function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
-function renderInsights(ctx) {
+function renderResults(ctx) {
+  const meta = extractMeta(ctx.solutionDoc);
+  const totalComps = ctx.solutionDoc.querySelectorAll('RootComponent').length;
   const topics = harvestCopilotDeep(ctx);
   const integrity = checkExportIntegrity(ctx);
-  const master = harvestMasterInventory(ctx);
+  
+  const results = document.getElementById('results');
+  let html = `
+    <div class="insight-banner">
+      <div class="insight-stat"><span class="insight-label">Solution</span><span class="insight-value">${esc(meta.name)}</span></div>
+      <div class="insight-stat"><span class="insight-label">Items</span><span class="insight-value">${totalComps}</span></div>
+      <div class="insight-stat"><span class="insight-label">Deep Scan</span><span class="insight-value" style="color:var(--purple)">Actief</span></div>
+    </div>
+  `;
 
-  let html = `<div class="section-title">📊 Diepe Copilot & Inventaris Analyse</div>`;
-
-  // Copilot Topics
   if (topics.length) {
     html += `
       <div class="insight-card">
@@ -124,60 +112,15 @@ function renderInsights(ctx) {
     `;
   }
 
-  // Master Inventory
-  html += `
-    <div class="insight-card">
-      <div class="insight-card-title">📂 Master Logical Inventory (${master.length} items)</div>
-      <div class="logical-inventory-grid">
-        <table class="insight-table">
-          <tr><th>Logische Naam</th><th>Type Code</th><th>Display Naam</th></tr>
-          ${master.slice(0, 20).map(m => `<tr><td><code>${esc(m.logicalName)}</code></td><td>${esc(m.typeCode)}</td><td><small>${esc(m.displayName)}</small></td></tr>`).join('')}
-        </table>
-        ${master.length > 20 ? `<div class="url-more">...en nog ${master.length - 20} andere componenten</div>` : ''}
-      </div>
-    </div>
-  `;
-
-  return { html, integrity };
-}
-
-function renderResults(ctx) {
-  const meta = extractMeta(ctx.solutionDoc);
-  const totalComps = ctx.solutionDoc.querySelectorAll('RootComponent').length;
-  const results = document.getElementById('results');
-  
-  const { html: insightsHtml, integrity } = renderInsights(ctx);
-
-  // Combine with basic findings
-  const findings = [...integrity];
-  const counts = { error: findings.filter(f=>f.level==='error').length, warning: findings.filter(f=>f.level==='warning').length, info: 0 };
-
-  let html = `
-    <div class="insight-banner">
-      <div class="insight-stat"><span class="insight-label">Solution</span><span class="insight-value">${esc(meta.name)}</span></div>
-      <div class="insight-stat"><span class="insight-label">Items</span><span class="insight-value">${totalComps}</span></div>
-      <div class="insight-stat"><span class="insight-label">Deep Scan</span><span class="insight-value" style="color:var(--purple)">Actief</span></div>
-    </div>
-  `;
-
-  html += insightsHtml;
-
-  if (findings.length) {
+  if (integrity.length) {
     html += `<div class="section-title">⚠️ Integriteit & Waarschuwingen</div>`;
-    findings.forEach(f => {
-      html += `
-        <div class="finding-card ${f.level}">
-          <div class="finding-header"><span class="finding-badge badge-${f.level}">${f.level.toUpperCase()}</span><span class="finding-title">${esc(f.title)}</span></div>
-          <div class="finding-desc">${esc(f.desc)}</div>
-        </div>
-      `;
+    integrity.forEach(f => {
+      html += `<div class="finding-card ${f.level}"><div class="finding-header"><span class="finding-badge badge-${f.level}">${f.level.toUpperCase()}</span><span class="finding-title">${esc(f.title)}</span></div><div class="finding-desc">${esc(f.desc)}</div></div>`;
     });
   }
-
   results.innerHTML = html;
 }
 
-// ─── COMPONENT DETECTION ──────────────────────────────────────────────────────
 function renderComponents(ctx) {
   const comps = [];
   for (const def of COMP_DEFS) {
@@ -191,108 +134,93 @@ function renderComponents(ctx) {
     }
     if (items.length) comps.push({ ...def, items: [...new Set(items)] });
   }
-  
   const total = comps.reduce((s,c)=>s+c.items.length,0);
   let h = `<div class="comp-summary"><div class="comp-summary-num">${total}</div><div class="comp-summary-label"><strong>Componenten Overzicht</strong>${total} objecten gevonden.</div></div><div class="comp-grid">`;
   comps.forEach((c,i) => {
-    h += `
-      <div class="comp-card" id="cc${i}">
-        <div class="comp-card-header" onclick="toggleCard('cc${i}')">
-          <div class="comp-card-icon">${c.icon}</div>
-          <div class="comp-card-info"><div class="comp-card-name">${c.label}</div><div class="comp-card-count">${c.items.length} item(s)</div></div>
-          <span class="comp-card-chevron">▼</span>
-        </div>
-        <div class="comp-card-body">
-          ${c.items.map(item => `<div class="comp-item"><span class="comp-item-dot"></span><div>${esc(item.name)}<br/><small style="opacity:0.6"><code>${esc(item.logical || '')}</code></small></div></div>`).join('')}
-        </div>
-      </div>`;
+    h += `<div class="comp-card" id="cc${i}"><div class="comp-card-header" onclick="toggleCard('cc${i}')"><div class="comp-card-icon">${c.icon}</div><div class="comp-card-info"><div class="comp-card-name">${c.label}</div><div class="comp-card-count">${c.items.length} item(s)</div></div><span class="comp-card-chevron">▼</span></div><div class="comp-card-body">${c.items.map(item => `<div class="comp-item"><span class="comp-item-dot"></span><div>${esc(item.name)}<br/><small style="opacity:0.6"><code>${esc(item.logical || '')}</code></small></div></div>`).join('')}</div></div>`;
   });
   h += `</div>`;
   document.getElementById('componentsView').innerHTML = h;
 }
 
-// ─── CORE ─────────────────────────────────────────────────────────────────────
 function extractMeta(doc) {
   return { name: doc.querySelector('UniqueName')?.textContent||'–', version: doc.querySelector('Version')?.textContent||'–' };
 }
 
-function toggleCard(id) { document.getElementById(id).classList.toggle('open'); }
-window.toggleCard = toggleCard;
+window.toggleCard = id => document.getElementById(id).classList.toggle('open');
 
 // ─── AI CHAT LOGIC ────────────────────────────────────────────────────────────
 let currentContext = null;
 
-function saveApiKey() {
-  const key = document.getElementById('geminiKey').value.trim();
-  if (key) {
-    localStorage.setItem('gemini_api_key', key);
+window.saveApiKey = function() {
+  const val = document.getElementById('geminiKey').value.trim();
+  if (val) {
+    localStorage.setItem('gemini_api_key', val);
+    alert('Sleutel opgeslagen!');
     checkChatSetup();
   }
-}
+};
 
 function checkChatSetup() {
   const key = localStorage.getItem('gemini_api_key');
-  if (key) {
+  if (key && document.getElementById('chatKeyArea')) {
     document.getElementById('chatKeyArea').classList.add('hidden');
     document.getElementById('chatActiveArea').classList.remove('hidden');
   }
 }
 
-async function sendChatMessage() {
+window.sendChatMessage = async function() {
   const input = document.getElementById('chatInput');
   const history = document.getElementById('chatHistory');
-  const btn = document.getElementById('sendBtn');
   const msg = input.value.trim();
   const key = localStorage.getItem('gemini_api_key');
-
   if (!msg || !key) return;
 
-  // Add user message
   appendMessage('user', msg);
   input.value = '';
-  btn.disabled = true;
-
-  // Add loading
   const loadingMsg = appendMessage('ai', 'Gemini denkt na...', true);
 
   try {
-    const contextStr = currentContext ? `
-      CONTEXT OVER DE GEANALYSEERDE POWER PLATFORM SOLUTION:
-      Naam: ${currentContext.name}
-      Items: ${currentContext.totalItems}
-      Gevonden Topics: ${JSON.stringify(currentContext.topics)}
-      Waarschuwingen: ${JSON.stringify(currentContext.warnings)}
-    ` : 'Er is nog geen bestand geanalyseerd.';
-
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${key}`, {
+    const contextStr = currentContext ? `Context: Solution ${currentContext.name}, ${currentContext.totalItems} items. Topics: ${currentContext.topics.map(t=>t.name).join(', ')}.` : 'Geen bestand geüpload.';
+    
+    const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${key}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        contents: [{
-          parts: [{ text: `${contextStr}\n\nGEBRUIKERSVRAAG: ${msg}\n\nAntwoord als een Power Platform expert. Gebruik Markdown.` }]
-        }]
+        contents: [{ parts: [{ text: `${contextStr}\n\nVraag: ${msg}\n\nAntwoord als Power Platform expert in het Nederlands. Gebruik Markdown.` }] }],
+        safetySettings: [
+          { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_NONE" },
+          { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_NONE" },
+          { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_NONE" },
+          { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_NONE" }
+        ]
       })
     });
 
-    const data = await response.json();
+    const data = await resp.json();
     loadingMsg.remove();
 
-    if (data.candidates && data.candidates[0].content.parts[0].text) {
+    if (data.error) {
+      throw new Error(data.error.message);
+    }
+
+    if (data.candidates && data.candidates[0].content) {
       appendMessage('ai', data.candidates[0].content.parts[0].text);
+    } else if (data.promptFeedback?.blockReason) {
+      appendMessage('ai', `⚠️ Antwoord geblokkeerd door Google (Reden: ${data.promptFeedback.blockReason}). Probeer je vraag anders te formuleren.`);
     } else {
-      throw new Error('Ongeldig antwoord van API');
+      appendMessage('ai', "Gemini gaf een leeg antwoord terug. Controleer of je vraag niet te privacy-gevoelig is.");
     }
   } catch (err) {
-    loadingMsg.remove();
-    appendMessage('ai', `Fout bij aanroepen Gemini: ${err.message}. Controleer je API key.`);
-  } finally {
-    btn.disabled = false;
-    history.scrollTop = history.scrollHeight;
+    if (loadingMsg) loadingMsg.remove();
+    appendMessage('ai', `❌ Fout: ${err.message}`);
+    log('Chat Error', err);
   }
-}
+};
 
 function appendMessage(role, text, isLoading = false) {
   const history = document.getElementById('chatHistory');
+  if (!history) return;
   const div = document.createElement('div');
   div.className = `chat-msg ${role} ${isLoading ? 'loading' : ''}`;
   div.innerText = text;
@@ -301,31 +229,18 @@ function appendMessage(role, text, isLoading = false) {
   return div;
 }
 
-// Check on load
-document.addEventListener('DOMContentLoaded', () => {
-  checkChatSetup();
-  document.getElementById('chatInput')?.addEventListener('keypress', (e) => {
-    if (e.key === 'Enter') sendChatMessage();
-  });
-});
-
-window.saveApiKey = saveApiKey;
-window.sendChatMessage = sendChatMessage;
-
+// ─── CORE ─────────────────────────────────────────────────────────────────────
 async function handleFile(file) {
   document.getElementById('outputArea').classList.remove('hidden');
-  document.getElementById('results').innerHTML = `<div class="loader"><div class="spinner"></div><br/>Diepe analyse bezig...</div>`;
-  
+  document.getElementById('results').innerHTML = `<div class="loader"><div class="spinner"></div><br/>Analyse bezig...</div>`;
   try {
     const ctx = { zipFiles: null, fileContents: {}, solutionDoc: null };
     const parser = new DOMParser();
-
     if (file.name.endsWith('.zip')) {
       const zip = await window.JSZip.loadAsync(file);
       ctx.zipFiles = zip.files;
       const solEntry = zip.file('solution.xml') || zip.file('Other/solution.xml');
       if (solEntry) ctx.solutionDoc = parser.parseFromString(await solEntry.async('text'), 'text/xml');
-      
       const loadTasks = [];
       for (const [name, entry] of Object.entries(zip.files)) {
         if (!entry.dir && (name.endsWith('.xml') || name.endsWith('.json'))) {
@@ -337,46 +252,35 @@ async function handleFile(file) {
       const text = await file.text();
       ctx.solutionDoc = parser.parseFromString(text, 'text/xml');
     }
-
-    if (!ctx.solutionDoc) throw new Error('Geen Solution XML gevonden.');
-
+    if (!ctx.solutionDoc) throw new Error('Geen Solution XML.');
     renderResults(ctx);
     renderComponents(ctx);
-    
-    // Store context for AI
     const meta = extractMeta(ctx.solutionDoc);
-    const topics = harvestCopilotDeep(ctx);
-    const integrity = checkExportIntegrity(ctx);
-    currentContext = {
-      name: meta.name,
-      totalItems: ctx.solutionDoc.querySelectorAll('RootComponent').length,
-      topics: topics.map(t => ({ name: t.name, status: t.status })),
-      warnings: integrity.map(i => i.title)
-    };
-    
+    currentContext = { name: meta.name, totalItems: ctx.solutionDoc.querySelectorAll('RootComponent').length, topics: harvestCopilotDeep(ctx) };
   } catch (err) {
-    log('Fatal Error', err);
     document.getElementById('results').innerHTML = `<div class="finding-card error">Fout: ${err.message}</div>`;
   }
 }
 
-// ─── EVENTS ───────────────────────────────────────────────────────────────────
-document.getElementById('fileInput').addEventListener('change', e => { if(e.target.files[0]) handleFile(e.target.files[0]); });
-document.getElementById('dropzone').addEventListener('dragover', e => { e.preventDefault(); e.currentTarget.classList.add('drag-over'); });
-document.getElementById('dragleave', e => e.currentTarget.classList.remove('drag-over'));
-document.getElementById('dropzone').addEventListener('drop', e => { e.preventDefault(); if(e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]); });
-document.getElementById('analyzeBtn').addEventListener('click', () => { 
-  const val = document.getElementById('xmlInput').value.trim();
-  if(val) handleFile(new File([val], "pasted.xml", {type:"text/xml"}));
-});
-
-document.querySelectorAll('.tab').forEach(tab => {
-  tab.addEventListener('click', () => {
-    document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
-    document.querySelectorAll('.tab-panel').forEach(p=>p.classList.add('hidden'));
-    tab.classList.add('active');
-    document.getElementById('tab'+tab.dataset.tab.charAt(0).toUpperCase()+tab.dataset.tab.slice(1)).classList.remove('hidden');
+document.addEventListener('DOMContentLoaded', () => {
+  checkChatSetup();
+  document.getElementById('chatInput')?.addEventListener('keypress', e => { if (e.key === 'Enter') sendChatMessage(); });
+  document.getElementById('fileInput').addEventListener('change', e => { if(e.target.files[0]) handleFile(e.target.files[0]); });
+  document.getElementById('dropzone').addEventListener('dragover', e => { e.preventDefault(); e.currentTarget.classList.add('drag-over'); });
+  document.getElementById('dragleave', e => e.currentTarget.classList.remove('drag-over'));
+  document.getElementById('dropzone').addEventListener('drop', e => { e.preventDefault(); if(e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]); });
+  document.getElementById('analyzeBtn').addEventListener('click', () => { 
+    const val = document.getElementById('xmlInput').value.trim();
+    if(val) handleFile(new File([val], "pasted.xml", {type:"text/xml"}));
+  });
+  document.querySelectorAll('.tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+      document.querySelectorAll('.tab-panel').forEach(p=>p.classList.add('hidden'));
+      tab.classList.add('active');
+      document.getElementById('tab'+tab.dataset.tab.charAt(0).toUpperCase()+tab.dataset.tab.slice(1)).classList.remove('hidden');
+    });
   });
 });
 
-log('Copilot Deep-Dive Engine ready.');
+log('Engine fully loaded.');
