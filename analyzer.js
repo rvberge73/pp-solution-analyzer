@@ -38,7 +38,7 @@ const COMP_DEFS = [
 
 // ─── COPILOT & INTEGRITY HARVESTER ───────────────────────────────────────────
 function harvestCopilotDeep(ctx) {
-  const topics = [];
+  const topicMap = new Map();
   const parser = new DOMParser();
 
   Object.entries(ctx.fileContents).forEach(([path, content]) => {
@@ -48,17 +48,21 @@ function harvestCopilotDeep(ctx) {
       const desc = doc.querySelector('description')?.textContent || 'Geen beschrijving';
       const lastPub = doc.querySelector('publishtime')?.textContent || doc.querySelector('modifiedon')?.textContent || 'Onbekend';
       
-      // Status detection: statecode 0 is usually Active/On, 1 is Inactive/Off
       const stateCode = doc.querySelector('statecode')?.textContent || doc.querySelector('statuscode')?.textContent || '0';
-      const status = stateCode === '0' ? '🟢 Aan' : '🔴 Uit';
+      const statusText = stateCode === '0' ? '🟢 Aan' : '🔴 Uit';
+      const isActive = stateCode === '0';
       
       const isTopic = path.includes('componenttype=9') || doc.querySelector('componenttype')?.textContent === '9';
       if (isTopic) {
-        topics.push({ name, desc, lastPub, status, path });
+        const existing = topicMap.get(name);
+        // Deduplication logic: Prioritize Active, then newer date
+        if (!existing || (isActive && existing.status === '🔴 Uit') || (isActive === (existing.status === '🟢 Aan') && lastPub > existing.lastPub)) {
+          topicMap.set(name, { name, desc, lastPub, status: statusText, path });
+        }
       }
     }
   });
-  return topics;
+  return Array.from(topicMap.values());
 }
 
 function checkExportIntegrity(ctx) {
