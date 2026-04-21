@@ -572,3 +572,37 @@ main {
   font-style: italic;
   padding-top: 0.5rem;
 }
+
+/* --- New Badges & Inventory --- */
+.badge-date {
+  font-size: 0.7rem;
+  background: rgba(124, 58, 237, 0.15);
+  color: #a78bfa;
+  padding: 2px 6px;
+  border-radius: 4px;
+  border: 1px solid rgba(124, 58, 237, 0.3);
+}
+
+code {
+  background: rgba(255, 255, 255, 0.05);
+  padding: 2px 4px;
+  border-radius: 4px;
+  font-family: 'JetBrains Mono', monospace;
+  color: #60a5fa;
+  font-size: 0.8rem;
+}
+
+.logical-inventory-grid {
+  overflow-x: auto;
+}
+
+.insight-table td small code {
+  font-size: 0.7rem;
+  opacity: 0.8;
+}
+
+.comp-item code {
+  font-size: 0.7rem;
+  background: none;
+  padding: 0;
+}
