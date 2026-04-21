@@ -505,7 +505,70 @@ main {
   border-left-color: var(--blue);
 }
 
-.badge-info {
-  background: rgba(59, 130, 246, 0.2);
+/* --- Advanced Insights --- */
+.insight-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.insight-card-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #a78bfa;
+  margin-bottom: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.insight-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+
+.insight-table th, .insight-table td {
+  padding: 0.75rem;
+  text-align: left;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.insight-table th {
+  color: var(--text-muted);
+  font-weight: 500;
+  text-transform: uppercase;
+  font-size: 0.7rem;
+  letter-spacing: 0.05em;
+}
+
+.insight-list {
+  margin: 0;
+  padding-left: 1.25rem;
+  color: var(--text-muted);
+}
+
+.url-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.url-item {
+  font-family: monospace;
+  font-size: 0.75rem;
+  background: rgba(255, 255, 255, 0.03);
+  padding: 0.5rem;
+  border-radius: 6px;
+  word-break: break-all;
   color: #60a5fa;
+}
+
+.url-more {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  font-style: italic;
+  padding-top: 0.5rem;
 }

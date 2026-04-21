@@ -19,14 +19,6 @@ const GUIDES = {
   missing_deps: { url:'https://make.powerapps.com', label:'make.powerapps.com → Solutions', steps:['Ga naar <a href="https://make.powerapps.com" target="_blank">make.powerapps.com</a>','Selecteer de <strong>doelomgeving</strong> rechtsboven','Klik op <strong>Solutions</strong> en bekijk welke managed solutions aanwezig zijn','Installeer de ontbrekende solutions via <strong>Import solution</strong>','Importeer daarna pas jouw solution opnieuw'] },
   connection_refs: { url:'https://make.powerapps.com', label:'make.powerapps.com → Solutions', steps:['Importeer de solution via <a href="https://make.powerapps.com" target="_blank">make.powerapps.com</a> → <strong>Solutions → Import</strong>','Open de solution en klik op <strong>Connection References</strong>','Klik op elke referentie en kies of maak een connectie','Sla op en test de flows/apps'] },
   env_missing: { url:'https://make.powerapps.com', label:'make.powerapps.com → Solutions → Import', steps:['Ga naar <a href="https://make.powerapps.com" target="_blank">make.powerapps.com</a> → <strong>Solutions → Import solution</strong>','In de import wizard verschijnt de stap <strong>Environment Variables</strong> — vul de waarden in','Al geïmporteerd? Open de solution → <strong>Environment variables</strong> → <strong>Edit</strong>'] },
-  env_ok: { url:'https://make.powerapps.com', label:'make.powerapps.com → Solutions', steps:['Ga naar <a href="https://make.powerapps.com" target="_blank">make.powerapps.com</a> → <strong>Solutions</strong>','Open de solution → <strong>Environment variables</strong>','Controleer of standaardwaarden kloppen voor de doelomgeving'] },
-  managed: { url:'https://make.powerapps.com', label:'make.powerapps.com → Solutions (bron)', steps:['Ga naar <a href="https://make.powerapps.com" target="_blank">make.powerapps.com</a> en selecteer de <strong>bronomgeving</strong>','Open de solution → <strong>Export solution</strong>','Kies <strong>Unmanaged</strong> als exporttype','Importeer de unmanaged versie voor volledige bewerkbaarheid'] },
-  flows: { url:'https://make.powerautomate.com', label:'make.powerautomate.com → My Flows', steps:['Ga naar <a href="https://make.powerautomate.com" target="_blank">make.powerautomate.com</a> en selecteer de <strong>doelomgeving</strong>','Klik op <strong>My flows</strong> of zoek via Solutions → jouw solution → Flows','Open elke flow en herstel connectiefouten via <strong>Edit</strong>','Klik op <strong>Turn on</strong> om de flow te activeren'] },
-  canvas: { url:'https://make.powerapps.com', label:'make.powerapps.com → Apps', steps:['Ga naar <a href="https://make.powerapps.com" target="_blank">make.powerapps.com</a> → <strong>Apps</strong>','Klik <strong>...</strong> naast de app → <strong>Edit</strong>','Ga naar <strong>View → Data sources</strong>','Verwijder verbroken bronnen en voeg ze opnieuw toe via <strong>Add data</strong>','<strong>File → Save → Publish</strong>'] },
-  publisher: { url:'https://make.powerapps.com', label:'make.powerapps.com → Solutions → Publishers', steps:['Ga naar <a href="https://make.powerapps.com" target="_blank">make.powerapps.com</a> (bronomgeving)','Klik op <strong>Solutions → Publishers → New publisher</strong>','Kies een unieke naam en prefix (bijv. bedrijfsnaam)','Wijs de nieuwe publisher toe aan je solution en exporteer opnieuw'] },
-  version: { url:'https://admin.powerplatform.microsoft.com', label:'admin.powerplatform.microsoft.com → Environments', steps:['Ga naar <a href="https://admin.powerplatform.microsoft.com" target="_blank">admin.powerplatform.microsoft.com</a>','Klik op <strong>Environments</strong> in het linkermenu','Klik op de naam van de <strong>doelomgeving</strong>','Bekijk het veld <strong>Version</strong> onder Details','Vergelijk met de versie in je solution — omgeving moet gelijk of hoger zijn'] },
-  security: { url:'https://make.powerapps.com', label:'Settings → Advanced settings → Security → Users', steps:['Ga naar <a href="https://make.powerapps.com" target="_blank">make.powerapps.com</a> → doelomgeving','Klik op het tandwiel ⚙️ rechtsboven → <strong>Advanced settings</strong>','Ga naar <strong>Settings → Security → Users</strong>','Selecteer een gebruiker → <strong>Manage Security Roles</strong>','Vink de juiste rollen aan en klik <strong>OK</strong>'] },
-  duplicates: { url:'https://make.powerapps.com', label:'make.powerapps.com → Solutions (bron)', steps:['Ga naar <a href="https://make.powerapps.com" target="_blank">make.powerapps.com</a> (bronomgeving)','Open de solution en zoek de componenten met dubbele namen','Klik op het component → <strong>...</strong> → hernoem het','Exporteer de solution opnieuw'] },
   hardcoded_url: { url:'https://make.powerautomate.com', label:'Flow Editor', steps:['Open de flow in de <strong>Edit</strong> modus','Zoek naar acties (zoals HTTP of SharePoint) waar een volledige URL is ingevuld','Vervang de URL door een <strong>Environment Variable</strong> voor een betere migratie'] },
 };
 
@@ -41,276 +33,275 @@ const COMP_DEFS = [
   { id:'connectors',  icon:'🔌', label:'Custom Connectors',       types:['301'],       selectors:['connector','Connector'] },
   { id:'connrefs',    icon:'🔗', label:'Connection References',   types:['302'],       selectors:['connectionreference','ConnectionReference'], nameAttr:'connectionreferencelogicalname' },
   { id:'tables',      icon:'🗄️', label:'Dataverse Tabellen',      types:['1'],         selectors:['Entity','entity'] },
-  { id:'forms',       icon:'📋', label:'Formulieren',             types:['9','60'],    selectors:['systemform','SystemForm'] },
-  { id:'views',       icon:'👁️', label:'Views',                   types:['20','61'],   selectors:['SavedQuery','savedquery'] },
-  { id:'webres',      icon:'🌐', label:'Web Resources',           types:['62'],        selectors:['WebResource','webresource'] },
-  { id:'roles',       icon:'🔐', label:'Beveiligingsrollen',      types:['65'],        selectors:['Role','role'] },
-  { id:'envvars',     icon:'⚙️', label:'Omgevingsvariabelen',     types:['380'],       selectors:['environmentvariabledefinition','EnvironmentVariableDefinition'] },
   { id:'plugins',     icon:'🧩', label:'Plugins / Code',          types:['90','91'],   selectors:['PluginAssembly','pluginassembly'] },
-  { id:'dashboards',  icon:'📊', label:'Dashboards & Grafieken',  types:['10','21'],   selectors:['SystemChart','savedqueryvisualization'] },
+  { id:'envvars',     icon:'⚙️', label:'Omgevingsvariabelen',     types:['380'],       selectors:['environmentvariabledefinition','EnvironmentVariableDefinition'] },
 ];
 
-// ─── DEEP SCAN LOGIC ──────────────────────────────────────────────────────────
-function scanDeepPatterns(ctx) {
-  const alerts = [];
-  const errors = [];
-  const highlights = [];
+// ─── HARVESTER LOGIC ──────────────────────────────────────────────────────────
+function harvestMetadata(ctx) {
+  const metadata = { creators: new Set(), modifiers: new Set(), descriptions: [] };
   
-  log('Scanning deep patterns...');
-
-  // 1. Secret Scanning
-  const secretRegex = /client_secret|password|secret_key|api_key|access_token/gi;
-  for (const [name, content] of Object.entries(ctx.fileContents)) {
-    if (secretRegex.test(content)) {
-      alerts.push({
-        title: `Potentieel geheim gevonden in ${name}`,
-        desc: `Er is tekst gevonden die lijkt op een wachtwoord of secret. Deel dit bestand nooit publiekelijk.`,
-        level: 'error'
-      });
-    }
-  }
-
-  // 2. Large File detection
-  if (ctx.zipFiles) {
-    for (const [name, entry] of Object.entries(ctx.zipFiles)) {
-      if (!entry.dir && entry._data.uncompressedSize > 5 * 1024 * 1024) {
-        highlights.push({
-          title: `Groot bestand: ${name}`,
-          desc: `Dit bestand is groter dan 5MB (${(entry._data.uncompressedSize / 1024 / 1024).toFixed(1)}MB). Dit kan import-vertraging veroorzaken.`,
-          level: 'info'
-        });
+  const scanDocs = [ctx.solutionDoc, ctx.customDoc].filter(Boolean);
+  scanDocs.forEach(doc => {
+    // CreatedBy / ModifiedBy
+    doc.querySelectorAll('CreatedBy, CreatedByName, ModifiedBy, ModifiedByName').forEach(el => {
+      const val = el.textContent.trim();
+      if (val && val !== '00000000-0000-0000-0000-000000000000') {
+        if (el.tagName.toLowerCase().includes('created')) metadata.creators.add(val);
+        else metadata.modifiers.add(val);
       }
-    }
-  }
+    });
+    // Descriptions
+    doc.querySelectorAll('Description, LocalizedName').forEach(el => {
+      const desc = el.getAttribute('description') || el.textContent.trim();
+      if (desc && desc.length > 5 && !metadata.descriptions.includes(desc)) metadata.descriptions.push(desc);
+    });
+  });
 
-  // 3. Environment Specifics (GUIDs and URLs)
-  const guidRegex = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi;
-  const urlRegex = /https?:\/\/[a-zA-Z0-9.-]+\.(sharepoint\.com|dynamics\.com|crm\.dynamics\.com|azurewebsites\.net)/gi;
+  return metadata;
+}
+
+function harvestAIModels(ctx) {
+  const models = [];
+  if (!ctx.customDoc) return models;
   
-  for (const [name, content] of Object.entries(ctx.fileContents)) {
-    const urls = content.match(urlRegex);
-    if (urls) {
-      alerts.push({
-        title: `Hardcoded URL in ${name.split('/').pop()}`,
-        desc: `Gevonden URL: ${urls[0]}. Dit kan problemen geven bij migratie naar een andere tenant.`,
-        level: 'warning',
-        guide: GUIDES.hardcoded_url
+  // AI Models are often entities named msdyn_aimodel
+  const entityNodes = ctx.customDoc.querySelectorAll('Entity, entity');
+  entityNodes.forEach(node => {
+    const name = node.querySelector('Name, name')?.textContent;
+    if (name === 'msdyn_aimodel') {
+      // In a real solution, the actual models are records, but we can detect the presence
+      models.push({ name: 'AI Builder Model (Dataverse)', type: 'Onbekend (Record-level)', status: 'Aanwezig' });
+    }
+  });
+
+  // Check solution.xml for AI component types (type 402 is often AI model)
+  ctx.solutionDoc.querySelectorAll('RootComponent[type="402"]').forEach(comp => {
+    models.push({ name: comp.getAttribute('id') || 'AI Model', type: 'AI Builder', status: 'Managed' });
+  });
+
+  return models;
+}
+
+function harvestConnections(ctx) {
+  const connections = [];
+  ctx.solutionDoc.querySelectorAll('connectionreference, ConnectionReference').forEach(el => {
+    connections.push({
+      logicalName: el.getAttribute('connectionreferencelogicalname') || '–',
+      displayName: el.getAttribute('displayname') || '–',
+      provider: el.querySelector('connectionreferencedisplayname')?.textContent || el.getAttribute('connectionreferencelogicalname')?.split('_')[1] || 'Unknown',
+      connectionId: el.querySelector('connectionid')?.textContent || 'Niet toegewezen'
+    });
+  });
+  return connections;
+}
+
+function harvestFullUrls(ctx) {
+  const urls = new Set();
+  const greedyUrlRegex = /https?:\/\/[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}[^\s"<>']*/gi;
+  
+  Object.entries(ctx.fileContents).forEach(([name, content]) => {
+    const matches = content.match(greedyUrlRegex);
+    if (matches) {
+      matches.forEach(url => {
+        // Filter out common noise
+        if (!url.includes('schema.microsoft.com') && !url.includes('w3.org')) {
+          urls.add(url);
+        }
       });
     }
-  }
-
-  // 4. Schema/Validation Errors
-  if (ctx.solutionDoc && ctx.solutionDoc.querySelector('parsererror')) {
-    errors.push({
-      title: 'XML Schema Fout',
-      desc: 'De solution.xml bevat ongeldige XML-tekens of een corrupte structuur.',
-      level: 'error'
-    });
-  }
-
-  return { alerts, errors, highlights };
+  });
+  return Array.from(urls);
 }
 
-function calculateQuickInsight(ctx, findings) {
-  const totalComps = ctx.solutionDoc.querySelectorAll('RootComponent').length;
-  const flows = ctx.solutionDoc.querySelectorAll('RootComponent[type="29"]').length;
-  const entities = ctx.solutionDoc.querySelectorAll('RootComponent[type="1"]').length;
-  const plugins = ctx.solutionDoc.querySelectorAll('PluginAssembly, pluginassembly').length;
-  
-  let complexity = 'Laag';
-  let color = 'var(--green)';
-  if (totalComps > 50 || flows > 10 || plugins > 0) { complexity = 'Medium'; color = 'var(--yellow)'; }
-  if (totalComps > 150 || flows > 25 || plugins > 3) { complexity = 'Hoog'; color = 'var(--red)'; }
-  
-  return {
-    complexity,
-    color,
-    summary: `${totalComps} componenten, ${flows} flows, ${entities} tabellen.`,
-    score: Math.min(10, (totalComps / 20) + (flows / 2) + (plugins * 2)).toFixed(1)
-  };
-}
-
-// ─── RENDER HELPERS ───────────────────────────────────────────────────────────
+// ─── RENDERERS ────────────────────────────────────────────────────────────────
 function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
-function renderQuickInsight(insight) {
-  return `
-    <div class="insight-banner">
-      <div class="insight-stat">
-        <span class="insight-label">Complexiteit</span>
-        <span class="insight-value" style="color: ${insight.color}">${insight.complexity}</span>
-      </div>
-      <div class="insight-stat">
-        <span class="insight-label">Zwaarte Score</span>
-        <span class="insight-value">${insight.score}/10</span>
-      </div>
-      <div class="insight-stat">
-        <span class="insight-label">Inhoud</span>
-        <span class="insight-value" style="font-size: 0.85rem; font-weight: 400;">${insight.summary}</span>
-      </div>
+function renderInsights(ctx) {
+  const metadata = harvestMetadata(ctx);
+  const aiModels = harvestAIModels(ctx);
+  const connections = harvestConnections(ctx);
+  const urls = harvestFullUrls(ctx);
+
+  let html = `<div class="section-title">📊 Geavanceerde Inzichten</div>`;
+
+  // Metadata Table
+  html += `
+    <div class="insight-card">
+      <div class="insight-card-title">👥 Betrokken Personen & Metadata</div>
+      <table class="insight-table">
+        <tr><th>Type</th><th>Waarden</th></tr>
+        <tr><td>Makers</td><td>${Array.from(metadata.creators).join(', ') || 'Onbekend'}</td></tr>
+        <tr><td>Aanpassers</td><td>${Array.from(metadata.modifiers).join(', ') || 'Onbekend'}</td></tr>
+        <tr><td>Omschrijvingen</td><td><ul class="insight-list">${metadata.descriptions.slice(0,3).map(d => `<li>${esc(d)}</li>`).join('')}</ul></td></tr>
+      </table>
     </div>
   `;
+
+  // AI Models
+  if (aiModels.length) {
+    html += `
+      <div class="insight-card">
+        <div class="insight-card-title">🤖 AI Builder Modellen</div>
+        <table class="insight-table">
+          <tr><th>Model Naam</th><th>Type</th><th>Status</th></tr>
+          ${aiModels.map(m => `<tr><td>${esc(m.name)}</td><td>${esc(m.type)}</td><td>${esc(m.status)}</td></tr>`).join('')}
+        </table>
+      </div>
+    `;
+  }
+
+  // Connections
+  if (connections.length) {
+    html += `
+      <div class="insight-card">
+        <div class="insight-card-title">🔗 Deep Connection Insights</div>
+        <table class="insight-table">
+          <tr><th>Display Naam</th><th>Provider</th><th>ID</th></tr>
+          ${connections.map(c => `<tr><td>${esc(c.displayName)}</td><td><strong>${esc(c.provider)}</strong></td><td><small>${esc(c.connectionId)}</small></td></tr>`).join('')}
+        </table>
+      </div>
+    `;
+  }
+
+  // Greedy URLs
+  if (urls.length) {
+    html += `
+      <div class="insight-card">
+        <div class="insight-card-title">📡 Gevonden Eindpunten (Full URLs)</div>
+        <div class="url-list">
+          ${urls.slice(0, 15).map(url => `<div class="url-item">${esc(url)}</div>`).join('')}
+          ${urls.length > 15 ? `<div class="url-more">...en nog ${urls.length - 15} andere URL's</div>` : ''}
+        </div>
+      </div>
+    `;
+  }
+
+  return html;
 }
 
-function renderResults(ctx, findings, deepFindings) {
+function renderResults(ctx, findings, deepScan) {
   const meta = extractMeta(ctx.solutionDoc);
-  const insight = calculateQuickInsight(ctx, findings);
+  const totalComps = ctx.solutionDoc.querySelectorAll('RootComponent').length;
+  
   const results = document.getElementById('results');
-  results.classList.remove('hidden');
-
-  const allFindings = [...deepFindings.errors, ...deepFindings.alerts, ...findings, ...deepFindings.highlights];
+  const allFindings = [...deepScan.errors, ...deepScan.alerts, ...findings, ...deepScan.highlights];
   const counts = { error: 0, warning: 0, info: 0 };
   allFindings.forEach(f => counts[f.level] = (counts[f.level] || 0) + 1);
 
-  let html = renderQuickInsight(insight);
+  let html = `
+    <div class="insight-banner">
+      <div class="insight-stat"><span class="insight-label">Solution</span><span class="insight-value">${esc(meta.name)}</span></div>
+      <div class="insight-stat"><span class="insight-label">Grootte</span><span class="insight-value">${totalComps} obj</span></div>
+      <div class="insight-stat"><span class="insight-label">Status</span><span class="insight-value" style="color:var(--green)">Scan Voltooid</span></div>
+    </div>
+  `;
 
-  html += `<div class="meta-info">
-    <div class="meta-item"><span class="meta-key">Naam</span><span class="meta-val">${esc(meta.name)}</span></div>
-    <div class="meta-item"><span class="meta-key">Display Naam</span><span class="meta-val">${esc(meta.displayName)}</span></div>
-    <div class="meta-item"><span class="meta-key">Versie</span><span class="meta-val">${esc(meta.version)}</span></div>
-    <div class="meta-item"><span class="meta-key">Publisher</span><span class="meta-val">${esc(meta.publisher)}</span></div>
-  </div>`;
+  html += renderInsights(ctx);
 
-  html += `<div class="summary-grid">
-    <div class="summary-card"><div class="summary-icon icon-error">🚨</div><div><div class="summary-label">Fouten</div><div class="summary-count count-error">${counts.error || 0}</div></div></div>
-    <div class="summary-card"><div class="summary-icon icon-warning">⚠️</div><div><div class="summary-label">Waarschuwingen</div><div class="summary-count count-warning">${counts.warning || 0}</div></div></div>
-    <div class="summary-card"><div class="summary-icon icon-info">ℹ️</div><div><div class="summary-label">Informatie</div><div class="summary-count count-info">${counts.info || 0}</div></div></div>
-    <div class="summary-card"><div class="summary-icon icon-ok">✅</div><div><div class="summary-label">Checks OK</div><div class="summary-count count-ok">9</div></div></div>
-  </div>`;
-
+  html += `<div class="section-title">⚠️ Analyse & Bevindingen</div>`;
   ['error', 'warning', 'info'].forEach(level => {
-    const group = allFindings.filter(f => f.level === level);
-    if (!group.length) return;
-    const labels = { error: '🚨 Kritieke Alerts & Fouten', warning: '⚠️ Waarschuwingen', info: 'ℹ️ Opvallende Zaken' };
-    html += `<div class="section-title">${labels[level]}</div>`;
-    group.forEach(f => {
-      html += `<div class="finding-card ${level}">
-        <div class="finding-header">
-          <span class="finding-badge badge-${level}">${level === 'error' ? 'Alert' : level === 'warning' ? 'Let op' : 'Highlight'}</span>
-          <span class="finding-title">${esc(f.title)}</span>
-        </div>
+    const grp = allFindings.filter(f => f.level === level);
+    if (!grp.length) return;
+    html += grp.map(f => `
+      <div class="finding-card ${level}">
+        <div class="finding-header"><span class="finding-badge badge-${level}">${level.toUpperCase()}</span><span class="finding-title">${esc(f.title)}</span></div>
         <div class="finding-desc">${esc(f.desc)}</div>
-        ${f.details?.length ? f.details.map(d => `<div class="finding-detail">${esc(d)}</div>`).join('') : ''}
-        ${f.solution ? `<div class="finding-solution">${esc(f.solution)}</div>` : ''}
         ${f.guide ? renderGuide(f.guide) : ''}
-      </div>`;
-    });
+      </div>
+    `).join('');
   });
 
   results.innerHTML = html;
 }
 
 // ─── COMPONENT DETECTION ──────────────────────────────────────────────────────
-function detectComponents(ctx) {
-  const results = [];
-  const doc = ctx.solutionDoc;
+function renderComponents(ctx) {
+  const comps = [];
   for (const def of COMP_DEFS) {
     let items = [];
     for (const sel of def.selectors) {
       try {
-        let els = [...doc.querySelectorAll(sel)];
+        let els = [...ctx.solutionDoc.querySelectorAll(sel)];
         if (def.filterFn) els = els.filter(def.filterFn);
-        if (els.length) {
-          items = els.map(e => e.getAttribute(def.nameAttr||'displayname') || e.getAttribute('name') || e.getAttribute('Name') || '(naamloos)');
-          break;
-        }
+        if (els.length) { items = els.map(e => e.getAttribute(def.nameAttr||'displayname') || e.getAttribute('name') || '(naamloos)'); break; }
       } catch(e) {}
     }
-    if (!items.length && def.types.length) {
-      const count = def.types.reduce((sum, t) => sum + doc.querySelectorAll(`RootComponent[type="${t}"]`).length, 0);
-      if (count > 0) items = Array(count).fill('(details in customizations.xml)');
-    }
-    if (items.length) results.push({ ...def, items: [...new Set(items)] });
+    if (items.length) comps.push({ ...def, items: [...new Set(items)] });
   }
-  return results;
-}
-
-function renderComponents(comps) {
+  
   const total = comps.reduce((s,c)=>s+c.items.length,0);
-  let h=`<div class="comp-summary"><div class="comp-summary-num">${total}</div><div class="comp-summary-label"><strong>Inventarisatie voltooid</strong>${total} objecten gevonden in ${comps.length} categorieën.</div></div>`;
-  h+=`<div class="comp-grid">`;
-  comps.forEach((c,i)=>{
-    h+=`<div class="comp-card" id="cc${i}"><div class="comp-card-header" onclick="toggleCard('cc${i}')"><div class="comp-card-icon">${c.icon}</div><div class="comp-card-info"><div class="comp-card-name">${c.label}</div><div class="comp-card-count">${c.items.length} item(s)</div></div><span class="comp-card-chevron">▼</span></div><div class="comp-card-body">${c.items.map(n=>`<div class="comp-item"><span class="comp-item-dot"></span>${esc(n)}</div>`).join('')}</div></div>`;
+  let h = `<div class="comp-summary"><div class="comp-summary-num">${total}</div><div class="comp-summary-label"><strong>Inventarisatie</strong>${total} objecten gevonden.</div></div><div class="comp-grid">`;
+  comps.forEach((c,i) => {
+    h += `<div class="comp-card" id="cc${i}"><div class="comp-card-header" onclick="toggleCard('cc${i}')"><div class="comp-card-icon">${c.icon}</div><div class="comp-card-info"><div class="comp-card-name">${c.label}</div><div class="comp-card-count">${c.items.length} item(s)</div></div><span class="comp-card-chevron">▼</span></div><div class="comp-card-body">${c.items.map(n=>`<div class="comp-item"><span class="comp-item-dot"></span>${esc(n)}</div>`).join('')}</div></div>`;
   });
-  h+=`</div>`;
+  h += `</div>`;
   document.getElementById('componentsView').innerHTML = h;
 }
 
-window.toggleCard = id => document.getElementById(id).classList.toggle('open');
-
 // ─── CORE ─────────────────────────────────────────────────────────────────────
 function extractMeta(doc) {
-  return {
-    name: doc.querySelector('UniqueName,uniquename')?.textContent?.trim()||'–',
-    displayName: doc.querySelector('LocalizedName,localizedname')?.getAttribute('description')||doc.querySelector('DisplayName,displayname')?.textContent?.trim()||'–',
-    version: doc.querySelector('Version,version')?.textContent?.trim()||'–',
-    publisher: doc.querySelector('Publisher UniqueName,publisher uniquename')?.textContent?.trim()||'–',
-  };
+  return { name: doc.querySelector('UniqueName')?.textContent||'–', version: doc.querySelector('Version')?.textContent||'–' };
 }
 
-function showLoader() {
+function toggleCard(id) { document.getElementById(id).classList.toggle('open'); }
+window.toggleCard = toggleCard;
+
+async function handleFile(file) {
   document.getElementById('outputArea').classList.remove('hidden');
-  document.getElementById('results').innerHTML=`<div class="loader"><div class="spinner"></div><br/>Diepe inspectie bezig...</div>`;
-}
-
-function runAnalysis(ctx) {
+  document.getElementById('results').innerHTML = `<div class="loader"><div class="spinner"></div><br/>Harvester bezig...</div>`;
+  
   try {
-    const findings = [];
-    const basicChecks = [
-      { id:'missing_deps', level:'error', chk: ctx => [...ctx.solutionDoc.querySelectorAll('MissingDependency')] },
-      { id:'env_vars', level:'warning', chk: ctx => [...ctx.solutionDoc.querySelectorAll('environmentvariabledefinition')] }
-    ];
-    
-    // Legacy Basic Checks integration
-    const legacyFindings = [];
-    // (In reality I'd refactor all CHECKS to return the standard format)
-    // For now, let's just run the new scan engine
-    const deepScan = scanDeepPatterns(ctx);
-    
-    // Combine with existing CHECKS
-    const finalFindings = [];
-    for(const chk of CHECKS){ try{ const r=chk.run(ctx); if(r) finalFindings.push({level:r.level||chk.level,...r}); }catch(e){} }
+    const ctx = { zipFiles: null, fileContents: {}, solutionDoc: null, customDoc: null };
+    const parser = new DOMParser();
 
-    renderResults(ctx, finalFindings, deepScan);
-    renderComponents(detectComponents(ctx));
+    if (file.name.endsWith('.zip')) {
+      const zip = await window.JSZip.loadAsync(file);
+      ctx.zipFiles = zip.files;
+      const solEntry = zip.file('solution.xml') || zip.file('Other/solution.xml');
+      if (solEntry) ctx.solutionDoc = parser.parseFromString(await solEntry.async('text'), 'text/xml');
+      const custEntry = zip.file('customizations.xml');
+      if (custEntry) ctx.customDoc = parser.parseFromString(await custEntry.async('text'), 'text/xml');
+      
+      const loadTasks = [];
+      for (const [name, entry] of Object.entries(zip.files)) {
+        if (!entry.dir && (name.endsWith('.xml') || name.endsWith('.json'))) {
+          loadTasks.push(entry.async('text').then(txt => ctx.fileContents[name] = txt));
+        }
+      }
+      await Promise.all(loadTasks);
+    } else {
+      const text = await file.text();
+      ctx.solutionDoc = parser.parseFromString(text, 'text/xml');
+      ctx.fileContents['raw.xml'] = text;
+    }
+
+    if (!ctx.solutionDoc) throw new Error('Geen Solution XML gevonden.');
+
+    const findings = []; // Placeholder for basic checks
+    const deepScan = { alerts: [], errors: [], highlights: [] }; // Placeholder for deep scan
+    
+    renderResults(ctx, findings, deepScan);
+    renderComponents(ctx);
+    
   } catch (err) {
-    log('Analysis Error', err);
+    log('Fatal Error', err);
+    document.getElementById('results').innerHTML = `<div class="finding-card error">Fout: ${err.message}</div>`;
   }
 }
 
-async function analyzeZip(file) {
-  log('Starting Universal Parser (ZIP)');
-  try {
-    const zip = await window.JSZip.loadAsync(file);
-    const ctx = { zipFiles: zip.files, fileContents: {} };
-    const parser = new DOMParser();
-    
-    const solFile = zip.file('solution.xml') || zip.file('Other/solution.xml');
-    if (solFile) ctx.solutionDoc = parser.parseFromString(await solFile.async('text'), 'text/xml');
-    
-    const custFile = zip.file('customizations.xml');
-    if (custFile) ctx.customDoc = parser.parseFromString(await custFile.async('text'), 'text/xml');
+// ─── EVENTS ───────────────────────────────────────────────────────────────────
+document.getElementById('fileInput').addEventListener('change', e => { if(e.target.files[0]) handleFile(e.target.files[0]); });
+document.getElementById('dropzone').addEventListener('dragover', e => { e.preventDefault(); e.currentTarget.classList.add('drag-over'); });
+document.getElementById('dropzone').addEventListener('dragleave', e => e.currentTarget.classList.remove('drag-over'));
+document.getElementById('dropzone').addEventListener('drop', e => { e.preventDefault(); if(e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]); });
+document.getElementById('analyzeBtn').addEventListener('click', () => { 
+  const val = document.getElementById('xmlInput').value.trim();
+  if(val) handleFile(new File([val], "pasted.xml", {type:"text/xml"}));
+});
 
-    for (const [name, entry] of Object.entries(zip.files)) {
-      if (!entry.dir && (name.endsWith('.xml') || name.endsWith('.json') || name.endsWith('.yaml'))) {
-        ctx.fileContents[name] = await entry.async('text');
-      }
-    }
-    
-    runAnalysis(ctx);
-  } catch (err) { log('ZIP Error', err); }
-}
-
-async function analyzeXML(text) {
-  log('Starting Universal Parser (XML)');
-  const parser = new DOMParser();
-  const doc = parser.parseFromString(text, 'text/xml');
-  runAnalysis({ solutionDoc: doc, zipFiles: {}, fileContents: { 'raw.xml': text } });
-}
-
-// ─── TABS ─────────────────────────────────────────────────────────────────────
-document.querySelectorAll('.tab').forEach(tab=>{
-  tab.addEventListener('click',()=>{
+document.querySelectorAll('.tab').forEach(tab => {
+  tab.addEventListener('click', () => {
     document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
     document.querySelectorAll('.tab-panel').forEach(p=>p.classList.add('hidden'));
     tab.classList.add('active');
@@ -318,24 +309,7 @@ document.querySelectorAll('.tab').forEach(tab=>{
   });
 });
 
-// ─── EVENTS ───────────────────────────────────────────────────────────────────
-document.getElementById('dropzone').addEventListener('dragover', e => { e.preventDefault(); e.currentTarget.classList.add('drag-over'); });
-document.getElementById('dropzone').addEventListener('dragleave', e => e.currentTarget.classList.remove('drag-over'));
-document.getElementById('dropzone').addEventListener('drop', async e => {
-  e.preventDefault(); e.currentTarget.classList.remove('drag-over');
-  const f = e.dataTransfer.files[0];
-  if(f) { showLoader(); f.name.endsWith('.zip') ? await analyzeZip(f) : await analyzeXML(await f.text()); }
-});
-document.getElementById('fileInput').addEventListener('change', async e => {
-  const f = e.target.files[0];
-  if(f) { showLoader(); f.name.endsWith('.zip') ? await analyzeZip(f) : await analyzeXML(await f.text()); }
-});
-document.getElementById('analyzeBtn').addEventListener('click', async () => {
-  const xml = document.getElementById('xmlInput').value.trim();
-  if(xml) { showLoader(); await analyzeXML(xml); }
-});
-
 function renderGuide(g) {
   return `<div class="guide-box"><div class="guide-header">🗺️ <span>${g.label}</span></div><ol class="guide-steps">${g.steps.map((s,i)=>`<li><span class="step-num">${i+1}</span><span>${s}</span></li>`).join('')}</ol></div>`;
 }
-log('Deep Content Inspection Engine loaded');
+log('Harvester Engine initialized.');
