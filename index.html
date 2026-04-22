@@ -82,6 +82,10 @@
             <p style="font-size:0.7rem; color:var(--text-muted); margin-top:0.5rem;">Je vindt je sleutel op <a href="https://aistudio.google.com/app/apikey" target="_blank" style="color:#a78bfa">Google AI Studio</a>. De sleutel wordt alleen lokaal opgeslagen.</p>
           </div>
           <div id="chatActiveArea" class="hidden">
+            <div style="padding: 0.5rem 1.5rem; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center;">
+              <span style="font-size: 0.8rem; color: var(--green);">● AI Expert Actief</span>
+              <button onclick="clearApiKey()" style="background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 0.75rem; text-decoration: underline;">Sleutel wijzigen</button>
+            </div>
             <div id="chatHistory" class="chat-history">
               <div class="chat-msg ai">Hallo! Ik ben je Power Platform Expert. Ik heb de details van de geüploade solution ingeladen. Wat wil je erover weten?</div>
             </div>

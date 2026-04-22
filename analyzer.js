@@ -154,18 +154,29 @@ let currentContext = null;
 
 window.saveApiKey = function() {
   const val = document.getElementById('geminiKey').value.trim();
-  if (val) {
+  if (val && val.startsWith('AIza')) {
     localStorage.setItem('gemini_api_key', val);
-    alert('Sleutel opgeslagen!');
+    alert('Sleutel succesvol opgeslagen!');
     checkChatSetup();
+  } else {
+    alert('Ongeldige sleutel. Een Gemini API Key begint meestal met "AIza...".');
+  }
+};
+
+window.clearApiKey = function() {
+  if (confirm('Wil je de API-sleutel verwijderen en een nieuwe invoeren?')) {
+    localStorage.removeItem('gemini_api_key');
+    location.reload(); // Herlaad om terug te gaan naar het setup scherm
   }
 };
 
 function checkChatSetup() {
   const key = localStorage.getItem('gemini_api_key');
-  if (key && document.getElementById('chatKeyArea')) {
-    document.getElementById('chatKeyArea').classList.add('hidden');
-    document.getElementById('chatActiveArea').classList.remove('hidden');
+  const keyArea = document.getElementById('chatKeyArea');
+  const activeArea = document.getElementById('chatActiveArea');
+  if (key && keyArea && activeArea) {
+    keyArea.classList.add('hidden');
+    activeArea.classList.remove('hidden');
   }
 }
 
@@ -178,44 +189,71 @@ window.sendChatMessage = async function() {
 
   appendMessage('user', msg);
   input.value = '';
-  const loadingMsg = appendMessage('ai', 'Gemini denkt na...', true);
+  const loadingMsg = appendMessage('ai', 'De expert zoekt verbinding...', true);
 
-  try {
-    const contextStr = currentContext ? `Context: Solution ${currentContext.name}, ${currentContext.totalItems} items. Topics: ${currentContext.topics.map(t=>t.name).join(', ')}.` : 'Geen bestand geüpload.';
-    
-    const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${key}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: `${contextStr}\n\nVraag: ${msg}\n\nAntwoord als Power Platform expert in het Nederlands. Gebruik Markdown.` }] }],
-        safetySettings: [
-          { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_NONE" },
-          { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_NONE" },
-          { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_NONE" },
-          { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_NONE" }
-        ]
-      })
-    });
+  const models = [
+    { ver: 'v1beta', name: 'gemini-2.0-flash' },
+    { ver: 'v1beta', name: 'gemini-flash-latest' },
+    { ver: 'v1beta', name: 'gemini-1.5-flash' },
+    { ver: 'v1beta', name: 'gemini-2.0-flash-exp' },
+    { ver: 'v1', name: 'gemini-pro' }
+  ];
 
-    const data = await resp.json();
-    loadingMsg.remove();
+  let lastError = '';
+  const contextStr = currentContext ? `Context: Solution ${currentContext.name}, ${currentContext.totalItems} items. Topics: ${currentContext.topics.map(t=>t.name).join(', ')}.` : '';
 
-    if (data.error) {
-      throw new Error(data.error.message);
-    }
-
-    if (data.candidates && data.candidates[0].content) {
-      appendMessage('ai', data.candidates[0].content.parts[0].text);
-    } else if (data.promptFeedback?.blockReason) {
-      appendMessage('ai', `⚠️ Antwoord geblokkeerd door Google (Reden: ${data.promptFeedback.blockReason}). Probeer je vraag anders te formuleren.`);
-    } else {
-      appendMessage('ai', "Gemini gaf een leeg antwoord terug. Controleer of je vraag niet te privacy-gevoelig is.");
-    }
-  } catch (err) {
-    if (loadingMsg) loadingMsg.remove();
-    appendMessage('ai', `❌ Fout: ${err.message}`);
-    log('Chat Error', err);
+  // 1. Probeer de bekende lijst
+  for (const model of models) {
+    try {
+      const resp = await fetch(`https://generativelanguage.googleapis.com/${model.ver}/models/${model.name}:generateContent?key=${key}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ contents: [{ parts: [{ text: `${contextStr}\n\nVraag: ${msg}\n\nAntwoord in NL.` }] }] })
+      });
+      const data = await resp.json();
+      if (data.candidates?.[0]?.content) {
+        loadingMsg.remove();
+        appendMessage('ai', data.candidates[0].content.parts[0].text);
+        return;
+      }
+      lastError = data.error?.message || 'Geen antwoord';
+    } catch (e) { lastError = e.message; }
   }
+
+  // 2. Als alles faalt, vraag de lijst op bij Google en TOON deze in de chat
+  try {
+    log('Opvragen lijst met beschikbare modellen...');
+    const listResp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${key}`);
+    const listData = await listResp.json();
+    
+    if (listData.error) {
+      loadingMsg.remove();
+      appendMessage('ai', `❌ API Fout: ${listData.error.message}\n\nTechnische details:\n${JSON.stringify(listData.error, null, 2)}`);
+      return;
+    }
+
+    if (listData.models && listData.models.length > 0) {
+      const names = listData.models.map(m => m.name);
+      loadingMsg.remove();
+      appendMessage('ai', `❌ Geen van de standaard modellen werkte. Google zegt dat je wel toegang hebt tot: ${names.join(', ')}. Probeer je vraag opnieuw, ik heb de lijst nu bijgewerkt.`);
+      // Voeg gevonden modellen toe aan de lijst voor de volgende poging
+      listData.models.forEach(m => {
+        if (m.supportedGenerationMethods.includes('generateContent')) {
+          models.unshift({ ver: 'v1beta', name: m.name.replace('models/', '') });
+        }
+      });
+      return;
+    } else {
+      loadingMsg.remove();
+      appendMessage('ai', `❌ Google geeft een lege lijst met modellen terug voor deze sleutel. Dit gebeurt meestal als de 'Generative Language API' niet is ingeschakeld in de Google Cloud Console voor dit project.`);
+      return;
+    }
+  } catch (e) { 
+    log('Model list error', e); 
+  }
+
+  loadingMsg.remove();
+  appendMessage('ai', `❌ Kritieke fout bij verbinden. Laatste ruwe fout van Google:\n${lastError}`);
 };
 
 function appendMessage(role, text, isLoading = false) {
