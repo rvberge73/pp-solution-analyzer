@@ -96,7 +96,6 @@ function renderResults(ctx) {
     <div class="insight-banner">
       <div class="insight-stat"><span class="insight-label">Solution</span><span class="insight-value">${esc(meta.name)}</span></div>
       <div class="insight-stat"><span class="insight-label">Items</span><span class="insight-value">${totalComps}</span></div>
-      <div class="insight-stat"><span class="insight-label">Deep Scan</span><span class="insight-value" style="color:var(--purple)">Actief</span></div>
     </div>
   `;
 
@@ -149,123 +148,6 @@ function extractMeta(doc) {
 
 window.toggleCard = id => document.getElementById(id).classList.toggle('open');
 
-// ─── AI CHAT LOGIC ────────────────────────────────────────────────────────────
-let currentContext = null;
-
-window.saveApiKey = function() {
-  const val = document.getElementById('geminiKey').value.trim();
-  if (val && val.startsWith('AIza')) {
-    localStorage.setItem('gemini_api_key', val);
-    alert('Sleutel succesvol opgeslagen!');
-    checkChatSetup();
-  } else {
-    alert('Ongeldige sleutel. Een Gemini API Key begint meestal met "AIza...".');
-  }
-};
-
-window.clearApiKey = function() {
-  if (confirm('Wil je de API-sleutel verwijderen en een nieuwe invoeren?')) {
-    localStorage.removeItem('gemini_api_key');
-    location.reload(); // Herlaad om terug te gaan naar het setup scherm
-  }
-};
-
-let serverHasKey = false;
-
-async function checkChatSetup() {
-  const configResp = await fetch('/api/config').catch(() => ({ json: () => ({ hasApiKey: false }) }));
-  const config = await configResp.json();
-  serverHasKey = config.hasApiKey;
-
-  const key = localStorage.getItem('gemini_api_key');
-  const keyArea = document.getElementById('chatKeyArea');
-  const activeArea = document.getElementById('chatActiveArea');
-  
-  if (serverHasKey) {
-    if (keyArea) keyArea.classList.add('hidden');
-    if (activeArea) activeArea.classList.remove('hidden');
-    document.getElementById('aiStatusText').innerText = '● AI Expert Actief (Server)';
-    document.getElementById('changeKeyBtn').classList.add('hidden');
-  } else if (key) {
-    if (keyArea) keyArea.classList.add('hidden');
-    if (activeArea) activeArea.classList.remove('hidden');
-    document.getElementById('aiStatusText').innerText = '● AI Expert Actief (Lokaal)';
-  }
-}
-
-window.sendChatMessage = async function() {
-  const input = document.getElementById('chatInput');
-  const msg = input.value.trim();
-  if (!msg) return;
-
-  const key = localStorage.getItem('gemini_api_key');
-  if (!serverHasKey && !key) return;
-
-  appendMessage('user', msg);
-  input.value = '';
-  const loadingMsg = appendMessage('ai', 'De expert denkt na...', true);
-
-  if (serverHasKey) {
-    try {
-      const contextStr = currentContext ? `Context: Solution ${currentContext.name}, ${currentContext.totalItems} items.` : '';
-      const resp = await fetch('/api/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: msg, context: contextStr })
-      });
-      const data = await resp.json();
-      loadingMsg.remove();
-      if (data.text) appendMessage('ai', data.text);
-      else appendMessage('ai', `❌ Fout: ${data.error}`);
-      return;
-    } catch (e) {
-      loadingMsg.remove();
-      appendMessage('ai', `❌ Proxy Fout: ${e.message}`);
-      return;
-    }
-  }
-
-  // Fallback to client-side (local)
-  const models = [
-    { ver: 'v1beta', name: 'gemini-2.0-flash' },
-    { ver: 'v1beta', name: 'gemini-1.5-flash' }
-  ];
-
-  let lastError = '';
-  const contextStr = currentContext ? `Context: Solution ${currentContext.name}, ${currentContext.totalItems} items.` : '';
-
-  for (const model of models) {
-    try {
-      const resp = await fetch(`https://generativelanguage.googleapis.com/${model.ver}/models/${model.name}:generateContent?key=${key}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ contents: [{ parts: [{ text: `${contextStr}\n\nVraag: ${msg}\n\nAntwoord in NL.` }] }] })
-      });
-      const data = await resp.json();
-      if (data.candidates?.[0]?.content) {
-        loadingMsg.remove();
-        appendMessage('ai', data.candidates[0].content.parts[0].text);
-        return;
-      }
-      lastError = data.error?.message || 'Geen antwoord';
-    } catch (e) { lastError = e.message; }
-  }
-
-  loadingMsg.remove();
-  appendMessage('ai', `❌ Kritieke fout bij verbinden. Laatste fout: ${lastError}`);
-};
-
-function appendMessage(role, text, isLoading = false) {
-  const history = document.getElementById('chatHistory');
-  if (!history) return;
-  const div = document.createElement('div');
-  div.className = `chat-msg ${role} ${isLoading ? 'loading' : ''}`;
-  div.innerText = text;
-  history.appendChild(div);
-  history.scrollTop = history.scrollHeight;
-  return div;
-}
-
 // ─── CORE ─────────────────────────────────────────────────────────────────────
 async function handleFile(file) {
   document.getElementById('outputArea').classList.remove('hidden');
@@ -292,16 +174,12 @@ async function handleFile(file) {
     if (!ctx.solutionDoc) throw new Error('Geen Solution XML.');
     renderResults(ctx);
     renderComponents(ctx);
-    const meta = extractMeta(ctx.solutionDoc);
-    currentContext = { name: meta.name, totalItems: ctx.solutionDoc.querySelectorAll('RootComponent').length, topics: harvestCopilotDeep(ctx) };
   } catch (err) {
     document.getElementById('results').innerHTML = `<div class="finding-card error">Fout: ${err.message}</div>`;
   }
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-  checkChatSetup();
-  document.getElementById('chatInput')?.addEventListener('keypress', e => { if (e.key === 'Enter') sendChatMessage(); });
   document.getElementById('fileInput').addEventListener('change', e => { if(e.target.files[0]) handleFile(e.target.files[0]); });
   document.getElementById('dropzone').addEventListener('dragover', e => { e.preventDefault(); e.currentTarget.classList.add('drag-over'); });
   document.getElementById('dragleave', e => e.currentTarget.classList.remove('drag-over'));

@@ -60,7 +60,6 @@
       <div class="tabs">
         <button class="tab active" data-tab="analysis">🔍 Analyse</button>
         <button class="tab" data-tab="components">📦 Componenten</button>
-        <button class="tab" data-tab="chat">🤖 AI Chat</button>
       </div>
 
       <div id="tabAnalysis" class="tab-panel">
@@ -71,33 +70,6 @@
         <div id="componentsView"></div>
       </div>
 
-      <div id="tabChat" class="tab-panel hidden">
-        <div class="chat-container">
-          <div id="chatKeyArea" class="chat-setup">
-            <p>Voer je Gemini API Key in om de AI Expert te activeren:</p>
-            <div style="display:flex; gap:0.5rem; margin-top:1rem;">
-              <input type="password" id="geminiKey" placeholder="AIza..." style="flex:1; padding:0.6rem; border-radius:8px; border:1px solid var(--border); background:rgba(0,0,0,0.2); color:white;" />
-              <button class="btn-upload" onclick="saveApiKey()" style="padding:0.6rem 1.2rem;">Opslaan</button>
-            </div>
-            <p style="font-size:0.7rem; color:var(--text-muted); margin-top:0.5rem;">Je vindt je sleutel op <a href="https://aistudio.google.com/app/apikey" target="_blank" style="color:#a78bfa">Google AI Studio</a>. De sleutel wordt alleen lokaal opgeslagen.</p>
-          </div>
-          <div id="chatActiveArea" class="hidden">
-            <div style="padding: 0.5rem 1.5rem; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center;">
-              <span id="aiStatusText" style="font-size: 0.8rem; color: var(--green);">● AI Expert Actief</span>
-              <button id="changeKeyBtn" onclick="clearApiKey()" style="background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 0.75rem; text-decoration: underline;">Sleutel wijzigen</button>
-            </div>
-            <div id="chatHistory" class="chat-history">
-              <div class="chat-msg ai">Hallo! Ik ben je Power Platform Expert. Ik heb de details van de geüploade solution ingeladen. Wat wil je erover weten?</div>
-            </div>
-            <div class="chat-input-area">
-              <input type="text" id="chatInput" placeholder="Stel een vraag over de solution..." />
-              <button onclick="sendChatMessage()" id="sendBtn">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/></svg>
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
     </div>
 
     <!-- Debug Log Area -->
