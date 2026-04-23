@@ -26,7 +26,9 @@ app.post('/api/chat', async (req, res) => {
     const { message, context } = req.body;
     const models = [
         { ver: 'v1beta', name: 'gemini-2.0-flash' },
-        { ver: 'v1beta', name: 'gemini-1.5-flash' }
+        { ver: 'v1', name: 'gemini-1.5-flash' },
+        { ver: 'v1beta', name: 'gemini-1.5-flash-latest' },
+        { ver: 'v1beta', name: 'gemini-1.5-pro' }
     ];
 
     let lastError = '';
