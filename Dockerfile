@@ -1,14 +1,15 @@
-FROM nginx:alpine
+FROM node:20-alpine
 
-# Copy static files
-COPY index.html /usr/share/nginx/html/
-COPY style.css /usr/share/nginx/html/
-COPY analyzer.js /usr/share/nginx/html/
-COPY jszip.min.js /usr/share/nginx/html/
+WORKDIR /app
 
-# Copy custom nginx config
-COPY nginx.conf /etc/nginx/conf.d/default.conf
+# Copy package info and install dependencies
+COPY package*.json ./
+RUN npm install
 
-EXPOSE 80
+# Copy application files
+COPY server.js ./
+COPY public ./public
 
-CMD ["nginx", "-g", "daemon off;"]
+EXPOSE 8090
+
+CMD ["npm", "start"]

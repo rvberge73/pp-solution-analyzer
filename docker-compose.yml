@@ -6,5 +6,5 @@ services:
     image: pp-solution-analyzer:latest
     container_name: pp-solution-analyzer
     ports:
-      - "8090:80"
+      - "8090:8090"
     restart: unless-stopped

@@ -170,39 +170,70 @@ window.clearApiKey = function() {
   }
 };
 
-function checkChatSetup() {
+let serverHasKey = false;
+
+async function checkChatSetup() {
+  const configResp = await fetch('/api/config').catch(() => ({ json: () => ({ hasApiKey: false }) }));
+  const config = await configResp.json();
+  serverHasKey = config.hasApiKey;
+
   const key = localStorage.getItem('gemini_api_key');
   const keyArea = document.getElementById('chatKeyArea');
   const activeArea = document.getElementById('chatActiveArea');
-  if (key && keyArea && activeArea) {
-    keyArea.classList.add('hidden');
-    activeArea.classList.remove('hidden');
+  
+  if (serverHasKey) {
+    if (keyArea) keyArea.classList.add('hidden');
+    if (activeArea) activeArea.classList.remove('hidden');
+    document.getElementById('aiStatusText').innerText = '● AI Expert Actief (Server)';
+    document.getElementById('changeKeyBtn').classList.add('hidden');
+  } else if (key) {
+    if (keyArea) keyArea.classList.add('hidden');
+    if (activeArea) activeArea.classList.remove('hidden');
+    document.getElementById('aiStatusText').innerText = '● AI Expert Actief (Lokaal)';
   }
 }
 
 window.sendChatMessage = async function() {
   const input = document.getElementById('chatInput');
-  const history = document.getElementById('chatHistory');
   const msg = input.value.trim();
+  if (!msg) return;
+
   const key = localStorage.getItem('gemini_api_key');
-  if (!msg || !key) return;
+  if (!serverHasKey && !key) return;
 
   appendMessage('user', msg);
   input.value = '';
-  const loadingMsg = appendMessage('ai', 'De expert zoekt verbinding...', true);
+  const loadingMsg = appendMessage('ai', 'De expert denkt na...', true);
 
+  if (serverHasKey) {
+    try {
+      const contextStr = currentContext ? `Context: Solution ${currentContext.name}, ${currentContext.totalItems} items.` : '';
+      const resp = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: msg, context: contextStr })
+      });
+      const data = await resp.json();
+      loadingMsg.remove();
+      if (data.text) appendMessage('ai', data.text);
+      else appendMessage('ai', `❌ Fout: ${data.error}`);
+      return;
+    } catch (e) {
+      loadingMsg.remove();
+      appendMessage('ai', `❌ Proxy Fout: ${e.message}`);
+      return;
+    }
+  }
+
+  // Fallback to client-side (local)
   const models = [
     { ver: 'v1beta', name: 'gemini-2.0-flash' },
-    { ver: 'v1beta', name: 'gemini-flash-latest' },
-    { ver: 'v1beta', name: 'gemini-1.5-flash' },
-    { ver: 'v1beta', name: 'gemini-2.0-flash-exp' },
-    { ver: 'v1', name: 'gemini-pro' }
+    { ver: 'v1beta', name: 'gemini-1.5-flash' }
   ];
 
   let lastError = '';
-  const contextStr = currentContext ? `Context: Solution ${currentContext.name}, ${currentContext.totalItems} items. Topics: ${currentContext.topics.map(t=>t.name).join(', ')}.` : '';
+  const contextStr = currentContext ? `Context: Solution ${currentContext.name}, ${currentContext.totalItems} items.` : '';
 
-  // 1. Probeer de bekende lijst
   for (const model of models) {
     try {
       const resp = await fetch(`https://generativelanguage.googleapis.com/${model.ver}/models/${model.name}:generateContent?key=${key}`, {
@@ -220,40 +251,8 @@ window.sendChatMessage = async function() {
     } catch (e) { lastError = e.message; }
   }
 
-  // 2. Als alles faalt, vraag de lijst op bij Google en TOON deze in de chat
-  try {
-    log('Opvragen lijst met beschikbare modellen...');
-    const listResp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${key}`);
-    const listData = await listResp.json();
-    
-    if (listData.error) {
-      loadingMsg.remove();
-      appendMessage('ai', `❌ API Fout: ${listData.error.message}\n\nTechnische details:\n${JSON.stringify(listData.error, null, 2)}`);
-      return;
-    }
-
-    if (listData.models && listData.models.length > 0) {
-      const names = listData.models.map(m => m.name);
-      loadingMsg.remove();
-      appendMessage('ai', `❌ Geen van de standaard modellen werkte. Google zegt dat je wel toegang hebt tot: ${names.join(', ')}. Probeer je vraag opnieuw, ik heb de lijst nu bijgewerkt.`);
-      // Voeg gevonden modellen toe aan de lijst voor de volgende poging
-      listData.models.forEach(m => {
-        if (m.supportedGenerationMethods.includes('generateContent')) {
-          models.unshift({ ver: 'v1beta', name: m.name.replace('models/', '') });
-        }
-      });
-      return;
-    } else {
-      loadingMsg.remove();
-      appendMessage('ai', `❌ Google geeft een lege lijst met modellen terug voor deze sleutel. Dit gebeurt meestal als de 'Generative Language API' niet is ingeschakeld in de Google Cloud Console voor dit project.`);
-      return;
-    }
-  } catch (e) { 
-    log('Model list error', e); 
-  }
-
   loadingMsg.remove();
-  appendMessage('ai', `❌ Kritieke fout bij verbinden. Laatste ruwe fout van Google:\n${lastError}`);
+  appendMessage('ai', `❌ Kritieke fout bij verbinden. Laatste fout: ${lastError}`);
 };
 
 function appendMessage(role, text, isLoading = false) {
