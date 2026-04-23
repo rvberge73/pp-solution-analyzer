@@ -63,6 +63,46 @@ function harvestCopilotDeep(ctx) {
   return Array.from(topicMap.values());
 }
 
+function harvestWorkflows(ctx) {
+  if (!ctx.customizationsDoc) return [];
+  return [...ctx.customizationsDoc.querySelectorAll('Workflow')].map(w => ({
+    name: w.getAttribute('Name'),
+    jsonFile: w.querySelector('JsonFileName')?.textContent || 'N/A',
+    type: w.querySelector('ModernFlowType')?.textContent || 'Standard'
+  }));
+}
+
+function harvestAIModels(ctx) {
+  if (!ctx.customizationsDoc) return [];
+  const configs = [];
+  ctx.customizationsDoc.querySelectorAll('AIConfiguration').forEach(config => {
+    const rawJson = config.querySelector('msdyn_customconfiguration')?.textContent;
+    if (rawJson) {
+      try {
+        const parsed = JSON.parse(rawJson);
+        const promptText = parsed.prompt || parsed.text || parsed.current_prompt || (parsed.prompts && parsed.prompts[0]?.text);
+        if (promptText) configs.push({ name: config.parentElement?.parentElement?.querySelector('name')?.textContent || 'AI Model', prompt: promptText });
+      } catch (e) { log('AI JSON parse error', e); }
+    }
+  });
+  return configs;
+}
+
+function harvestBotParts(ctx) {
+  if (!ctx.contentTypesDoc) return [];
+  return [...ctx.contentTypesDoc.querySelectorAll('Override')]
+    .map(o => o.getAttribute('PartName'))
+    .filter(p => p && p.includes('.topic'));
+}
+
+function harvestConnectionRefs(ctx) {
+  if (!ctx.customizationsDoc) return [];
+  return [...ctx.customizationsDoc.querySelectorAll('connectionreference')].map(c => ({
+    display: c.querySelector('connectionreferencedisplayname')?.textContent || 'Onbekend',
+    id: c.querySelector('connectorid')?.textContent || 'N/A'
+  }));
+}
+
 function checkExportIntegrity(ctx) {
   const warnings = [];
   const rootComps = [...ctx.solutionDoc.querySelectorAll('RootComponent')];
@@ -119,6 +159,7 @@ function renderResults(ctx) {
   const meta = extractMeta(ctx.solutionDoc);
   const totalComps = ctx.solutionDoc.querySelectorAll('RootComponent').length;
   const integrity = checkExportIntegrity(ctx);
+  const aiPrompts = harvestAIModels(ctx);
   
   const results = document.getElementById('results');
   let html = `
@@ -130,13 +171,22 @@ function renderResults(ctx) {
     <div class="research-summary" style="margin-top: 1.5rem; padding: 1.5rem; background: rgba(255,255,255,0.03); border-radius: 12px; border: 1px solid var(--border);">
       <p style="margin-bottom: 1rem; color: var(--text-muted); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em;">Onderzochte onderdelen:</p>
       <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1rem;">
-        <div style="display: flex; align-items: center; gap: 0.75rem;"><span style="color: var(--green);">✅</span> <span>Integriteit check (ZIP vs XML)</span></div>
-        <div style="display: flex; align-items: center; gap: 0.75rem;"><span style="color: var(--green);">✅</span> <span>Copilot Deep Scan (Topics & Status)</span></div>
-        <div style="display: flex; align-items: center; gap: 0.75rem;"><span style="color: var(--green);">✅</span> <span>Connection Refs (Persoonlijke accounts)</span></div>
+        <div style="display: flex; align-items: center; gap: 0.75rem;"><span style="color: var(--green);">✅</span> <span>Workflows & AI Prompts</span></div>
+        <div style="display: flex; align-items: center; gap: 0.75rem;"><span style="color: var(--green);">✅</span> <span>[Content_Types] Deep Scan</span></div>
+        <div style="display: flex; align-items: center; gap: 0.75rem;"><span style="color: var(--green);">✅</span> <span>Connection Refs & Connector IDs</span></div>
         <div style="display: flex; align-items: center; gap: 0.75rem;"><span style="color: var(--green);">✅</span> <span>Componenten inventarisatie</span></div>
       </div>
     </div>
   `;
+
+  if (aiPrompts.length) {
+    html += `
+      <div class="insight-card" style="border-left: 4px solid var(--purple);">
+        <div class="insight-card-title">✨ AI Prompt Insights</div>
+        ${aiPrompts.map(p => `<div style="margin-bottom: 1rem;"><div style="font-weight:600; font-size:0.8rem; color:var(--purple)">${esc(p.name)}</div><div class="finding-desc" style="background:rgba(0,0,0,0.2); padding:1rem; border-radius:8px; font-family:serif; font-style:italic;">"${esc(p.prompt)}"</div></div>`).join('')}
+      </div>
+    `;
+  }
 
   if (integrity.length) {
     html += `<div class="section-title">⚠️ Integriteit & Waarschuwingen</div>`;
@@ -149,6 +199,9 @@ function renderResults(ctx) {
 
 function renderComponents(ctx) {
   const topics = harvestCopilotDeep(ctx);
+  const workflows = harvestWorkflows(ctx);
+  const botParts = harvestBotParts(ctx);
+  const connRefs = harvestConnectionRefs(ctx);
   let h = '';
 
   if (topics.length) {
@@ -159,6 +212,41 @@ function renderComponents(ctx) {
           <tr><th>Topic</th><th>Status</th><th>Beschrijving</th><th>Laatst Gewijzigd</th></tr>
           ${topics.map(t => `<tr><td><strong>${esc(t.name)}</strong></td><td>${t.status}</td><td><small>${esc(t.desc)}</small></td><td><span class="badge-date">${esc(t.lastPub)}</span></td></tr>`).join('')}
         </table>
+      </div>
+    `;
+  }
+
+  if (workflows.length) {
+    h += `
+      <div class="insight-card" style="margin-bottom: 3rem;">
+        <div class="insight-card-title">🔄 Cloud Workflows (${workflows.length})</div>
+        <table class="insight-table">
+          <tr><th>Workflow Name</th><th>Bestandsnaam</th><th>Type</th></tr>
+          ${workflows.map(w => `<tr><td><strong>${esc(w.name)}</strong></td><td><code>${esc(w.jsonFile)}</code></td><td><span class="badge-date">${esc(w.type)}</span></td></tr>`).join('')}
+        </table>
+      </div>
+    `;
+  }
+
+  if (connRefs.length) {
+    h += `
+      <div class="insight-card" style="margin-bottom: 3rem;">
+        <div class="insight-card-title">🔗 Connection References (${connRefs.length})</div>
+        <table class="insight-table">
+          <tr><th>Display Name</th><th>Connector ID</th></tr>
+          ${connRefs.map(c => `<tr><td><strong>${esc(c.display)}</strong></td><td><code>${esc(c.id)}</code></td></tr>`).join('')}
+        </table>
+      </div>
+    `;
+  }
+
+  if (botParts.length) {
+    h += `
+      <div class="insight-card" style="margin-bottom: 3rem;">
+        <div class="insight-card-title">🤖 [Content_Types] Bot Parts (${botParts.length})</div>
+        <div style="display:flex; flex-wrap:wrap; gap:0.5rem; padding:1rem;">
+          ${botParts.map(p => `<span class="badge-date" style="background:rgba(255,255,255,0.05)">${esc(p)}</span>`).join('')}
+        </div>
       </div>
     `;
   }
@@ -202,6 +290,12 @@ async function handleFile(file) {
       ctx.zipFiles = zip.files;
       const solEntry = zip.file('solution.xml') || zip.file('Other/solution.xml');
       if (solEntry) ctx.solutionDoc = parser.parseFromString(await solEntry.async('text'), 'text/xml');
+      
+      const custEntry = zip.file('customizations.xml') || zip.file('Other/customizations.xml');
+      if (custEntry) ctx.customizationsDoc = parser.parseFromString(await custEntry.async('text'), 'text/xml');
+
+      const ctEntry = zip.file('[Content_Types].xml');
+      if (ctEntry) ctx.contentTypesDoc = parser.parseFromString(await ctEntry.async('text'), 'text/xml');
       const loadTasks = [];
       for (const [name, entry] of Object.entries(zip.files)) {
         if (!entry.dir && (name.endsWith('.xml') || name.endsWith('.json'))) {
