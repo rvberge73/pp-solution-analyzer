@@ -28,21 +28,25 @@ app.post('/api/chat', async (req, res) => {
         { ver: 'v1beta', name: 'gemini-2.0-flash' },
         { ver: 'v1', name: 'gemini-1.5-flash' },
         { ver: 'v1beta', name: 'gemini-1.5-flash-latest' },
-        { ver: 'v1beta', name: 'gemini-1.5-pro' }
+        { ver: 'v1beta', name: 'gemini-1.5-pro' },
+        { ver: 'v1beta', name: 'gemini-pro' }
     ];
 
     let lastError = '';
     for (const model of models) {
         try {
+            console.log(`Trying model: ${model.name}...`);
             const resp = await axios.post(`https://generativelanguage.googleapis.com/${model.ver}/models/${model.name}:generateContent?key=${key}`, {
                 contents: [{ parts: [{ text: `${context}\n\nVraag: ${message}\n\nAntwoord in NL.` }] }]
             });
 
             if (resp.data.candidates?.[0]?.content) {
+                console.log(`Model ${model.name} success!`);
                 return res.json({ text: resp.data.candidates[0].content.parts[0].text });
             }
         } catch (e) {
             lastError = e.response?.data?.error?.message || e.message;
+            console.error(`Model ${model.name} failed: ${lastError}`);
         }
     }
 
