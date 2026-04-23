@@ -118,7 +118,6 @@ function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;'
 function renderResults(ctx) {
   const meta = extractMeta(ctx.solutionDoc);
   const totalComps = ctx.solutionDoc.querySelectorAll('RootComponent').length;
-  const topics = harvestCopilotDeep(ctx);
   const integrity = checkExportIntegrity(ctx);
   
   const results = document.getElementById('results');
@@ -127,19 +126,17 @@ function renderResults(ctx) {
       <div class="insight-stat"><span class="insight-label">Solution</span><span class="insight-value">${esc(meta.name)}</span></div>
       <div class="insight-stat"><span class="insight-label">Items</span><span class="insight-value">${totalComps}</span></div>
     </div>
-  `;
 
-  if (topics.length) {
-    html += `
-      <div class="insight-card">
-        <div class="insight-card-title">💬 Copilot Topics (${topics.length})</div>
-        <table class="insight-table">
-          <tr><th>Topic</th><th>Status</th><th>Beschrijving</th><th>Datum</th></tr>
-          ${topics.map(t => `<tr><td><strong>${esc(t.name)}</strong></td><td>${t.status}</td><td><small>${esc(t.desc)}</small></td><td><span class="badge-date">${esc(t.lastPub)}</span></td></tr>`).join('')}
-        </table>
+    <div class="research-summary" style="margin-top: 1.5rem; padding: 1.5rem; background: rgba(255,255,255,0.03); border-radius: 12px; border: 1px solid var(--border);">
+      <p style="margin-bottom: 1rem; color: var(--text-muted); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em;">Onderzochte onderdelen:</p>
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1rem;">
+        <div style="display: flex; align-items: center; gap: 0.75rem;"><span style="color: var(--green);">✅</span> <span>Integriteit check (ZIP vs XML)</span></div>
+        <div style="display: flex; align-items: center; gap: 0.75rem;"><span style="color: var(--green);">✅</span> <span>Copilot Deep Scan (Topics & Status)</span></div>
+        <div style="display: flex; align-items: center; gap: 0.75rem;"><span style="color: var(--green);">✅</span> <span>Connection Refs (Persoonlijke accounts)</span></div>
+        <div style="display: flex; align-items: center; gap: 0.75rem;"><span style="color: var(--green);">✅</span> <span>Componenten inventarisatie</span></div>
       </div>
-    `;
-  }
+    </div>
+  `;
 
   if (integrity.length) {
     html += `<div class="section-title">⚠️ Integriteit & Waarschuwingen</div>`;
@@ -151,6 +148,21 @@ function renderResults(ctx) {
 }
 
 function renderComponents(ctx) {
+  const topics = harvestCopilotDeep(ctx);
+  let h = '';
+
+  if (topics.length) {
+    h += `
+      <div class="insight-card" style="margin-bottom: 3rem;">
+        <div class="insight-card-title">💬 Gedetecteerde Copilot Topics (${topics.length})</div>
+        <table class="insight-table">
+          <tr><th>Topic</th><th>Status</th><th>Beschrijving</th><th>Laatst Gewijzigd</th></tr>
+          ${topics.map(t => `<tr><td><strong>${esc(t.name)}</strong></td><td>${t.status}</td><td><small>${esc(t.desc)}</small></td><td><span class="badge-date">${esc(t.lastPub)}</span></td></tr>`).join('')}
+        </table>
+      </div>
+    `;
+  }
+
   const comps = [];
   for (const def of COMP_DEFS) {
     let items = [];
@@ -164,7 +176,7 @@ function renderComponents(ctx) {
     if (items.length) comps.push({ ...def, items: [...new Set(items)] });
   }
   const total = comps.reduce((s,c)=>s+c.items.length,0);
-  let h = `<div class="comp-summary"><div class="comp-summary-num">${total}</div><div class="comp-summary-label"><strong>Componenten Overzicht</strong>${total} objecten gevonden.</div></div><div class="comp-grid">`;
+  h += `<div class="comp-summary"><div class="comp-summary-num">${total}</div><div class="comp-summary-label"><strong>Componenten Overzicht</strong>${total} objecten gevonden in de solution.</div></div><div class="comp-grid">`;
   comps.forEach((c,i) => {
     h += `<div class="comp-card" id="cc${i}"><div class="comp-card-header" onclick="toggleCard('cc${i}')"><div class="comp-card-icon">${c.icon}</div><div class="comp-card-info"><div class="comp-card-name">${c.label}</div><div class="comp-card-count">${c.items.length} item(s)</div></div><span class="comp-card-chevron">▼</span></div><div class="comp-card-body">${c.items.map(item => `<div class="comp-item"><span class="comp-item-dot"></span><div>${esc(item.name)}<br/><small style="opacity:0.6"><code>${esc(item.logical || '')}</code></small></div></div>`).join('')}</div></div>`;
   });
