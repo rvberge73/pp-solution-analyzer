@@ -66,10 +66,16 @@ function harvestCopilotDeep(ctx) {
 function checkExportIntegrity(ctx) {
   const warnings = [];
   const rootComps = [...ctx.solutionDoc.querySelectorAll('RootComponent')];
+  
+  // Check for Managed status
+  const isManaged = ctx.solutionDoc.querySelector('Managed')?.textContent === '1';
+  
   rootComps.forEach(comp => {
     const type = comp.getAttribute('type');
     const id = comp.getAttribute('id');
     const schemaName = comp.getAttribute('schemaName') || id;
+    
+    // Integrity checks (existing)
     if (type === '29') {
       const found = Object.keys(ctx.zipFiles || {}).some(k => k.includes(id) || k.includes(schemaName));
       if (!found) warnings.push({ title: `Flow bestand mist: ${schemaName}`, desc: `Definitiebestand ontbreekt in de ZIP.`, level: 'warning' });
@@ -77,6 +83,30 @@ function checkExportIntegrity(ctx) {
     if (type === '300') {
       const found = Object.keys(ctx.zipFiles || {}).some(k => k.startsWith('CanvasApps/') && k.includes(schemaName));
       if (!found) warnings.push({ title: `Canvas App mist: ${schemaName}`, desc: `Het .msapp bestand ontbreekt.`, level: 'warning' });
+    }
+
+    // NEW: Connection Reference Personal Account Check
+    if (type === '302') {
+      const displayName = comp.getAttribute('displayname') || schemaName;
+      
+      // Heuristic: Names with spaces (First Last) or email-like patterns
+      const isPersonal = /^[A-Z][a-z]+ [A-Z][a-z]+/.test(displayName) || displayName.includes('@');
+      
+      if (isPersonal) {
+        if (isManaged) {
+          warnings.push({
+            title: `KRITIEK: Persoonlijk account in Managed Solution!`,
+            desc: `Account '${displayName}' lijkt persoonlijk. Het is niet toegestaan om persoonlijke accounts te gebruiken in Test/Prod. Flows kunnen worden uitgeschakeld en zijn dan onmogelijk opnieuw te activeren.`,
+            level: 'error'
+          });
+        } else {
+          warnings.push({
+            title: `Persoonlijk account gedetecteerd`,
+            desc: `Connection Reference '${displayName}' lijkt een persoonlijk account te gebruiken. Overweeg een Service Account voor migratie naar Test/Prod.`,
+            level: 'warning'
+          });
+        }
+      }
     }
   });
   return warnings;
